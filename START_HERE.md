@@ -4,14 +4,17 @@ Welcome to the Kiro API Project!
 
 ## What is this?
 
-A **production-ready REST API** for integrating Amazon Q (Kiro CLI) with your applications.
+A **production-ready Semantic API** for integrating Amazon Q (Kiro CLI) with your applications using predefined templates.
 
 Built with:
+- ✅ Template-based code generation (11 templates)
 - ✅ Node.js + AWS (EC2, DynamoDB, nginx)
 - ✅ Minimal dependencies (AWS SDK only)
 - ✅ 15-minute deployment
 - ✅ ~$26/month cost
 - ✅ Linear scalability
+
+**Templates:** Code generation, API design, database schema, CRUD operations, testing, and more.
 
 ## Quick Navigation
 
@@ -29,6 +32,9 @@ Built with:
 
 ### 🗺️ I want to browse all docs
 → **[INDEX.md](INDEX.md)** (Navigation guide)
+
+### 🔗 I want to connect to GitHub
+→ **[GITHUB_SETUP.md](GITHUB_SETUP.md)** (GitHub integration)
 
 ## One-Minute Overview
 

@@ -1,17 +1,44 @@
-# Kiro API Integration Project
+# Semantic API
 
-A focused implementation of Kiro CLI integration with AWS infrastructure for AI-powered code generation.
+Template-based intent-driven API that integrates Kiro CLI with AWS infrastructure.
 
 ## 🎯 Project Focus
 
-This project provides a minimal, production-ready API for integrating Amazon Q (Kiro CLI) with web applications, using AWS infrastructure.
+Ultra-generic HTTP server where URLs map directly to markdown template files. Each template defines the intent, constraints, and instructions for Kiro CLI to execute.
+
+**Architecture**: HTTP method + URL path → Template file → Kiro CLI → Generated code
+
+**Deployment:**
+- **Development EC2**: 44.222.168.46:8082
+- **Endpoint**: http://44.222.168.46:8082
 
 **Core Components:**
-- **Kiro API Server** - REST API for Kiro CLI interactions
-- **EC2 Backend** - Dedicated compute for Kiro sessions
+- **Template-Based Routing** - URL paths map to markdown files
+- **Semantic API Server** - Minimal HTTP server (130 lines)
 - **DynamoDB** - Task queue and state management
-- **nginx** - Reverse proxy and load balancing
-- **S3 Frontend** - Static web hosting
+- **Kiro CLI Integration** - Direct template passing
+
+**Available Templates:**
+- `POST-api-users` - Create user endpoint
+- `GET-api-users` - List users endpoint  
+- `GET-aipm-stories` - Read AIPM user stories from DynamoDB
+
+See [TEMPLATES.md](TEMPLATES.md) for complete template reference.
+
+## 🚀 Quick Deploy
+
+Deploy to development EC2:
+```bash
+./scripts/deploy-dev.sh
+```
+
+Deployment target:
+- EC2: 44.222.168.46
+- Port: 8082
+- Process manager: PM2
+- Health check: http://44.222.168.46:8082/health
+
+## 💻 Local Development
 
 ## 🏗️ Architecture
 
@@ -213,15 +240,19 @@ server {
 
 ### Kiro API Endpoints
 
-#### POST /api/chat
-Submit a chat message to Kiro CLI.
+#### POST /api/generate
+Generate code using a template.
 
 ```bash
-curl -X POST http://localhost:8081/api/chat \
+curl -X POST http://localhost:8081/api/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Create a REST API endpoint",
-    "sessionId": "optional-session-id"
+    "templateId": "create-function",
+    "parameters": {
+      "name": "calculateSum",
+      "description": "sum an array of numbers",
+      "language": "javascript"
+    }
   }'
 ```
 
@@ -229,8 +260,46 @@ Response:
 ```json
 {
   "taskId": "uuid",
-  "status": "processing",
-  "sessionId": "kiro-session-id"
+  "status": "pending",
+  "templateId": "create-function"
+}
+```
+
+#### GET /api/templates
+List all available templates.
+
+```bash
+curl http://localhost:8081/api/templates
+```
+
+Response:
+```json
+{
+  "templates": ["create-api", "create-function", "add-tests", "refactor-code", "fix-bug", "add-documentation"]
+}
+```
+
+#### GET /api/templates/:templateId
+Get template details and parameters.
+
+```bash
+curl http://localhost:8081/api/templates/create-function
+```
+
+Response:
+```json
+{
+  "id": "create-function",
+  "name": "Create Function",
+  "description": "Generate a function with specified behavior",
+  "parameters": [
+    {
+      "name": "name",
+      "type": "string",
+      "required": true,
+      "description": "Function name"
+    }
+  ]
 }
 ```
 

@@ -1,17 +1,17 @@
 {
-  "name": "kiro-api-project",
+  "name": "semantic-api",
   "version": "1.0.0",
-  "description": "Kiro CLI integration with AWS infrastructure",
-  "main": "src/kiro-api-server.js",
+  "description": "Semantic API - Template-based intent-driven API with Kiro CLI",
+  "main": "src/semantic-api-server.js",
   "type": "module",
   "scripts": {
-    "start": "node src/kiro-api-server.js",
-    "dev": "NODE_ENV=development node src/kiro-api-server.js",
+    "start": "node src/semantic-api-server.js",
+    "dev": "NODE_ENV=development node src/semantic-api-server.js",
     "test": "node --test tests/*.test.js",
     "deploy": "./scripts/deploy.sh",
     "health": "./scripts/health-check.sh"
   },
-  "keywords": ["kiro", "aws", "api", "code-generation"],
+  "keywords": ["semantic-api", "kiro", "aws", "template-based", "intent-driven"],
   "author": "",
   "license": "MIT",
   "dependencies": {

@@ -1,0 +1,17 @@
+[Unit]
+Description=Persistent Kiro CLI Session
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/semantic-api
+Environment="PATH=/home/ec2-user/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/node scripts/kiro-persistent.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ec2-user/semantic-api/kiro-persistent.log
+StandardError=append:/home/ec2-user/semantic-api/kiro-persistent.log
+
+[Install]
+WantedBy=multi-user.target

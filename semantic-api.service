@@ -1,0 +1,19 @@
+[Unit]
+Description=Semantic API Server
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/semantic-api
+Environment="KIRO_API_PORT=9000"
+Environment="AWS_REGION=us-east-1"
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node src/semantic-api-server.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ec2-user/semantic-api/semantic-api.log
+StandardError=append:/home/ec2-user/semantic-api/semantic-api.log
+
+[Install]
+WantedBy=multi-user.target

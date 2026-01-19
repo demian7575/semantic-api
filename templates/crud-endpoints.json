@@ -1,0 +1,41 @@
+{
+  "id": "crud-endpoints",
+  "name": "Complete CRUD Endpoints",
+  "description": "Generate all CRUD endpoints for a resource",
+  "category": "endpoint",
+  "parameters": [
+    {
+      "name": "resource",
+      "type": "string",
+      "required": true,
+      "description": "Resource name (singular, e.g., user, product)"
+    },
+    {
+      "name": "language",
+      "type": "string",
+      "required": true,
+      "enum": ["nodejs", "python", "go"],
+      "description": "Programming language"
+    },
+    {
+      "name": "database",
+      "type": "string",
+      "required": true,
+      "enum": ["dynamodb", "postgres", "mongodb"],
+      "description": "Database type"
+    },
+    {
+      "name": "fields",
+      "type": "string",
+      "required": true,
+      "description": "Resource fields (comma-separated, e.g., name, email, age)"
+    },
+    {
+      "name": "auth",
+      "type": "boolean",
+      "required": false,
+      "description": "Include authentication"
+    }
+  ],
+  "prompt": "Generate complete CRUD endpoints for {{resource}} in {{language}} using {{database}}. Fields: {{fields}}. Include: GET /api/{{resource}}s (list with pagination), GET /api/{{resource}}s/:id (get by ID), POST /api/{{resource}}s (create), PUT /api/{{resource}}s/:id (update), DELETE /api/{{resource}}s/:id (delete).{{#if auth}} Add JWT authentication middleware.{{/if}} Include input validation and error handling."
+}
