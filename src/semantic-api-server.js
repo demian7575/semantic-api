@@ -21,6 +21,9 @@ const AIPM_TESTS_TABLE = 'aipm-backend-prod-acceptance-tests';
 const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const dynamodb = DynamoDBDocumentClient.from(client);
 
+// Store pending requests waiting for callback
+const pendingRequests = new Map();
+
 // HTTP server
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,11 +76,14 @@ const server = http.createServer(async (req, res) => {
   // Callback endpoint for Kiro CLI to post results
   if (url.pathname.startsWith('/callback/') && req.method === 'POST') {
     const taskId = url.pathname.split('/').pop();
+    console.log(`Callback received for task: ${taskId}`);
+    console.log(`Pending requests: ${Array.from(pendingRequests.keys()).join(', ')}`);
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
         const result = JSON.parse(body);
+        console.log(`Callback data length: ${body.length}`);
         await dynamodb.send(new UpdateCommand({
           TableName: QUEUE_TABLE,
           Key: { id: taskId },
@@ -85,6 +91,18 @@ const server = http.createServer(async (req, res) => {
           ExpressionAttributeNames: { '#status': 'status', '#result': 'result' },
           ExpressionAttributeValues: { ':complete': 'complete', ':result': JSON.stringify(result) }
         }));
+        
+        // Resolve pending request if exists
+        if (pendingRequests.has(taskId)) {
+          console.log(`Resolving pending request for ${taskId}`);
+          const { res: pendingRes } = pendingRequests.get(taskId);
+          pendingRes.writeHead(200, { 'Content-Type': 'application/json' });
+          pendingRes.end(JSON.stringify(result));
+          pendingRequests.delete(taskId);
+        } else {
+          console.log(`No pending request found for ${taskId}`);
+        }
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
       } catch (error) {
@@ -168,38 +186,22 @@ const server = http.createServer(async (req, res) => {
 
       await dynamodb.send(new PutCommand({ TableName: QUEUE_TABLE, Item: task }));
 
-      // Wait for callback to complete (poll for up to 90 seconds)
-      const maxWait = 90000;
-      const pollInterval = 1000;
-      const startTime = Date.now();
+      // Store pending request - callback will resolve it
+      console.log(`Task created: ${taskId}, waiting for callback...`);
+      pendingRequests.set(taskId, { res, createdAt: Date.now() });
       
-      // Give worker time to pick up task
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log(`Polling for task ${taskId}...`);
-      while (Date.now() - startTime < maxWait) {
-        const result = await dynamodb.send(new GetCommand({
-          TableName: QUEUE_TABLE,
-          Key: { id: taskId }
-        }));
-        
-        console.log(`Poll: status=${result.Item?.status}, hasResult=${!!result.Item?.result}`);
-        
-        if (result.Item && result.Item.status === 'complete' && result.Item.result) {
-          // Return the callback result directly
-          console.log(`Task complete, returning result`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(result.Item.result);
-          return;
+      // Timeout after 90 seconds
+      setTimeout(() => {
+        if (pendingRequests.has(taskId)) {
+          pendingRequests.delete(taskId);
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            taskId, 
+            status: 'timeout',
+            message: 'Processing timeout, check /task/' + taskId 
+          }));
         }
-        
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-      }
-      
-      // Timeout - return task ID for manual polling
-      console.log(`Task timeout after ${Date.now() - startTime}ms`);
-      res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ taskId, status: 'pending', message: 'Processing timeout, check /task/' + taskId }));
+      }, 90000);
     } catch (error) {
       console.error(`Error:`, error);
       res.writeHead(400, { 'Content-Type': 'application/json' });

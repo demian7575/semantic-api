@@ -3,7 +3,7 @@
 
 REGION="us-east-1"
 TABLE="semantic-api-queue"
-POLL_INTERVAL=2
+POLL_INTERVAL=0.5
 
 echo "🤖 Semantic API Kiro Worker starting..."
 echo "Table: $TABLE"
@@ -53,49 +53,15 @@ while true; do
       --expression-attribute-values '{":processing":{"S":"processing"}}' \
       --region $REGION >/dev/null
     
-    # Execute Kiro CLI via persistent session
+    # Execute Kiro CLI directly
     echo "🔄 Executing Kiro CLI..."
-    LOG_FILE="/tmp/kiro-cli-live.log"
+    TEMPLATE_CONTENT=$(cat "$TEMP_TEMPLATE")
     
-    # Create prompt that tells Kiro to read the template
-    PROMPT_FILE="/tmp/prompt-$TASK_ID.txt"
-    echo "Read and follow the template file: $TEMP_TEMPLATE" > "$PROMPT_FILE"
-    echo "" >> "$PROMPT_FILE"
-    echo "Execute the template instructions exactly as written." >> "$PROMPT_FILE"
+    echo "$TEMPLATE_CONTENT" | /home/ec2-user/.local/bin/kiro-cli chat --trust-all-tools --no-interactive >/dev/null 2>&1
     
-    # Send to persistent Kiro CLI session
-    PROMPT=$(cat "$PROMPT_FILE")
-    RESULT=$(curl -s -X POST http://localhost:9001/execute \
-      -H "Content-Type: application/json" \
-      -d "{\"prompt\": $(echo "$PROMPT" | jq -Rs '.')}")
+    echo "✅ Task complete (callback handled response)"
     
-    echo "[$(date -Iseconds)] [Task-$TASK_ID] Kiro CLI execution complete" >> "$LOG_FILE"
-    echo "$RESULT" >> "$LOG_FILE"
-    
-    rm -f "$PROMPT_FILE" "$TEMP_TEMPLATE"
-    
-    # Check if callback was successful (don't overwrite callback data)
-    TASK_STATUS=$(aws dynamodb get-item \
-      --table-name $TABLE \
-      --key "{\"id\":{\"S\":\"$TASK_ID\"}}" \
-      --region $REGION \
-      --output json | jq -r '.Item.status.S')
-    
-    if [ "$TASK_STATUS" = "complete" ]; then
-      echo "✅ Task already completed by callback"
-    else
-      # Save result only if callback didn't complete it
-      RESULT_JSON=$(echo "$RESULT" | jq -Rs '.')
-      aws dynamodb update-item \
-        --table-name $TABLE \
-        --key "{\"id\":{\"S\":\"$TASK_ID\"}}" \
-        --update-expression "SET #status = :complete, #result = :result" \
-        --expression-attribute-names '{"#status":"status","#result":"result"}' \
-        --expression-attribute-values "{\":complete\":{\"S\":\"complete\"},\":result\":{\"S\":$RESULT_JSON}}" \
-        --region $REGION >/dev/null
-      
-      echo "✅ Task complete"
-    fi
+    rm -f "$TEMP_TEMPLATE"
     echo ""
   fi
   

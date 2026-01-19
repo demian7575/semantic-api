@@ -2,7 +2,7 @@
 set -e
 
 # Deployment configuration
-DEV_EC2="44.222.168.46"
+DEV_EC2="100.28.131.76"
 DEV_USER="ec2-user"
 PORT="8082"
 APP_NAME="semantic-api"
@@ -23,11 +23,11 @@ tar czf semantic-api.tar.gz \
 
 # Upload to EC2
 echo "📤 Uploading to EC2..."
-scp semantic-api.tar.gz $DEV_USER@$DEV_EC2:/tmp/
+scp -i ~/.ssh/semantic-api-key semantic-api.tar.gz $DEV_USER@$DEV_EC2:/tmp/
 
 # Deploy on EC2
 echo "🔧 Installing on EC2..."
-ssh $DEV_USER@$DEV_EC2 << 'ENDSSH'
+ssh -i ~/.ssh/semantic-api-key $DEV_USER@$DEV_EC2 << 'ENDSSH'
 set -e
 
 # Stop existing services on port 8082
@@ -47,9 +47,7 @@ tar xzf /tmp/semantic-api.tar.gz
 npm install --omit=dev
 
 # Start with nohup
-export KIRO_API_PORT=8082
-export AWS_REGION=us-east-1
-nohup node src/semantic-api-server.js > semantic-api.log 2>&1 &
+KIRO_API_PORT=8082 AWS_REGION=us-east-1 nohup node src/semantic-api-server.js > semantic-api.log 2>&1 &
 echo $! > semantic-api.pid
 
 sleep 2
