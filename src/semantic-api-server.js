@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import http from 'http';
-import { existsSync } from 'fs';
+import { existsSync, readFile, readdir, writeFile, unlink } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -70,6 +70,94 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'healthy' }));
+    return;
+  }
+
+  // Serve index.html
+  if (url.pathname === '/' && req.method === 'GET') {
+    const indexPath = join(__dirname, '../public/index.html');
+    readFile(indexPath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not found');
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(data);
+      }
+    });
+    return;
+  }
+
+  // List templates
+  if (url.pathname === '/templates' && req.method === 'GET') {
+    const templatesDir = join(__dirname, '../templates');
+    readdir(templatesDir, (err, files) => {
+      if (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: 'Failed to read templates' }));
+      } else {
+        const templates = files.filter(f => f.endsWith('.md'));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ templates }));
+      }
+    });
+    return;
+  }
+
+  // Get template content
+  if (url.pathname.startsWith('/template/') && req.method === 'GET') {
+    const templateName = url.pathname.split('/').pop();
+    const templatePath = join(__dirname, '../templates', templateName);
+    readFile(templatePath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Template not found');
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(data);
+      }
+    });
+    return;
+  }
+
+  // Save/Update template
+  if (url.pathname.startsWith('/template/') && req.method === 'PUT') {
+    const templateName = url.pathname.split('/').pop();
+    if (!templateName.endsWith('.md')) {
+      res.writeHead(400);
+      res.end('Template name must end with .md');
+      return;
+    }
+    const templatePath = join(__dirname, '../templates', templateName);
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      writeFile(templatePath, body, 'utf8', (err) => {
+        if (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: 'Failed to save template' }));
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        }
+      });
+    });
+    return;
+  }
+
+  // Delete template
+  if (url.pathname.startsWith('/template/') && req.method === 'DELETE') {
+    const templateName = url.pathname.split('/').pop();
+    const templatePath = join(__dirname, '../templates', templateName);
+    unlink(templatePath, (err) => {
+      if (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: 'Failed to delete template' }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      }
+    });
     return;
   }
 

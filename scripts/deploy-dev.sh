@@ -18,6 +18,7 @@ tar czf semantic-api.tar.gz \
   --exclude='.git' \
   src/ \
   templates/ \
+  public/ \
   package.json \
   package-lock.json
 
