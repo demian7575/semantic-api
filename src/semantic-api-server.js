@@ -5,18 +5,14 @@ import { existsSync, readFile, readdir, writeFile, unlink } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const TEMPLATES_DIR = join(__dirname, '../templates');
 
-const PORT = process.env.KIRO_API_PORT || 9000;
+const PORT = process.env.KIRO_API_PORT || 8082;
 const QUEUE_TABLE = process.env.KIRO_QUEUE_TABLE || 'semantic-api-queue';
-
-// AIPM DynamoDB tables (read-only)
-const AIPM_STORIES_TABLE = 'aipm-backend-prod-stories';
-const AIPM_TESTS_TABLE = 'aipm-backend-prod-acceptance-tests';
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const dynamodb = DynamoDBDocumentClient.from(client);
@@ -37,34 +33,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
-
-  // Direct DynamoDB read endpoint (no Kiro CLI needed)
-  if (url.pathname === '/aipm/stories/direct' && req.method === 'GET') {
-    const limit = parseInt(url.searchParams.get('limit') || '10');
-    const status = url.searchParams.get('status');
-    
-    try {
-      const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
-      const params = {
-        TableName: AIPM_STORIES_TABLE,
-        Limit: limit
-      };
-      
-      if (status) {
-        params.FilterExpression = '#status = :status';
-        params.ExpressionAttributeNames = { '#status': 'status' };
-        params.ExpressionAttributeValues = { ':status': status };
-      }
-      
-      const result = await dynamodb.send(new ScanCommand(params));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ stories: result.Items || [] }));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message }));
-    }
-    return;
-  }
 
   // Health check
   if (url.pathname === '/health') {
@@ -90,8 +58,7 @@ const server = http.createServer(async (req, res) => {
 
   // List templates
   if (url.pathname === '/templates' && req.method === 'GET') {
-    const templatesDir = join(__dirname, '../templates');
-    readdir(templatesDir, (err, files) => {
+    readdir(TEMPLATES_DIR, (err, files) => {
       if (err) {
         res.writeHead(500);
         res.end(JSON.stringify({ error: 'Failed to read templates' }));
@@ -107,7 +74,7 @@ const server = http.createServer(async (req, res) => {
   // Get template content
   if (url.pathname.startsWith('/template/') && req.method === 'GET') {
     const templateName = url.pathname.split('/').pop();
-    const templatePath = join(__dirname, '../templates', templateName);
+    const templatePath = join(TEMPLATES_DIR, templateName);
     readFile(templatePath, 'utf8', (err, data) => {
       if (err) {
         res.writeHead(404);
@@ -128,7 +95,7 @@ const server = http.createServer(async (req, res) => {
       res.end('Template name must end with .md');
       return;
     }
-    const templatePath = join(__dirname, '../templates', templateName);
+    const templatePath = join(TEMPLATES_DIR, templateName);
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
@@ -148,7 +115,7 @@ const server = http.createServer(async (req, res) => {
   // Delete template
   if (url.pathname.startsWith('/template/') && req.method === 'DELETE') {
     const templateName = url.pathname.split('/').pop();
-    const templatePath = join(__dirname, '../templates', templateName);
+    const templatePath = join(TEMPLATES_DIR, templateName);
     unlink(templatePath, (err) => {
       if (err) {
         res.writeHead(500);
@@ -215,23 +182,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       
-      // Extract clean JSON from Kiro CLI output
-      let cleanResult = result.Item;
-      if (result.Item.result && typeof result.Item.result === 'string') {
-        try {
-          // Try to extract JSON from AWS CLI output
-          const jsonMatch = result.Item.result.match(/\{[\s\S]*"Items"[\s\S]*\}/);
-          if (jsonMatch) {
-            const awsResult = JSON.parse(jsonMatch[0]);
-            cleanResult = { ...result.Item, result: awsResult };
-          }
-        } catch (e) {
-          // Keep original if parsing fails
-        }
-      }
-      
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(cleanResult));
+      res.end(JSON.stringify(result.Item));
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message }));
@@ -250,8 +202,8 @@ const server = http.createServer(async (req, res) => {
   
   // Check if template exists
   if (!existsSync(templatePath)) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Requested resource not found' }));
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Template not found' }));
     return;
   }
 
