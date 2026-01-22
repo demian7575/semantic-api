@@ -2,7 +2,7 @@
 set -e
 
 # Deployment configuration
-DEV_EC2="100.28.131.76"
+DEV_EC2="44.222.168.46"
 DEV_USER="ec2-user"
 PORT="8082"
 APP_NAME="semantic-api"
