@@ -125,29 +125,39 @@ Client ←─response─← Server ←──JSON────────┘</pre
             document.getElementById('templateEditor').value = data;
             document.getElementById('welcomeSection').style.display = 'none';
             document.getElementById('editorSection').style.display = 'block';
-            
-            // Use Semantic API to parse template docs
-            const docsRes = await fetch(`${API_BASE}/template-docs`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ templateName: name, templateContent: data })
-            });
-            
-            if (docsRes.ok) {
-                const docs = await docsRes.json();
-                document.getElementById('templateDocs').innerHTML = `
-                    <strong>엔드포인트:</strong> <code>${docs.endpoint}</code><br>
-                    ${docs.description ? `<strong>설명:</strong> ${docs.description}<br><br>` : ''}
-                    <strong>역할:</strong> ${docs.role}<br>
-                    ${docs.parameters.length > 0 ? `<strong>파라미터:</strong> ${docs.parameters.map(p => `<code>${p}</code>`).join(', ')}<br>` : ''}
-                    ${docs.testExample ? `<br><strong>테스트 예시:</strong><pre style="background:#f4f4f4;padding:10px;border-radius:4px;font-size:11px;overflow-x:auto;margin-top:5px">${docs.testExample}</pre>` : ''}
-                `;
-            } else {
-                document.getElementById('templateDocs').innerHTML = '<em>문서 파싱 실패</em>';
-            }
+            document.getElementById('templateDocs').innerHTML = generateTemplateDocs(name, data);
             
             document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
             document.querySelector(`.template-item[data-name="${name}"]`)?.classList.add('active');
+        }
+
+        function generateTemplateDocs(name, content) {
+            const [method, ...pathParts] = name.replace('.md', '').split('-');
+            const path = '/' + pathParts.join('/');
+            
+            const params = [...content.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]).filter(p => p !== 'taskId');
+            const uniqueParams = [...new Set(params)];
+            
+            const descMatch = content.match(/## Description\s*\n([\s\S]*?)\n\n##/);
+            const description = descMatch ? descMatch[1].trim() : '';
+            
+            const testMatch = content.match(/## Test Example\s*```\s*([\s\S]*?)```/);
+            const testExample = testMatch ? testMatch[1].trim() : '';
+            
+            const roleMatch = content.match(/\*\*YOU ARE\*\*:\s*(.+)/);
+            const role = roleMatch ? roleMatch[1].trim() : 'Task executor';
+            
+            let docs = `<strong>엔드포인트:</strong> <code>${method} ${path}</code><br>`;
+            if (description) docs += `<strong>설명:</strong> ${description}<br><br>`;
+            docs += `<strong>역할:</strong> ${role}<br>`;
+            if (uniqueParams.length > 0) {
+                docs += `<strong>파라미터:</strong> ${uniqueParams.map(p => `<code>${p}</code>`).join(', ')}<br>`;
+            }
+            if (testExample) {
+                docs += `<br><strong>테스트 예시:</strong><pre style="background:#f4f4f4;padding:10px;border-radius:4px;font-size:11px;overflow-x:auto;margin-top:5px">${testExample}</pre>`;
+            }
+            
+            return docs;
         }
 
         async function createTemplate() {
@@ -346,36 +356,25 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             if (overlay) overlay.remove();
             if (dialog) dialog.remove();
             
-            alert('🤖 AI가 템플릿을 생성 중입니다... (최대 90초 소요)');
+            // Just call the API - it handles everything
+            const res = await fetch(`${API_BASE}/generate-template`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idea })
+            });
             
-            try {
-                const res = await fetch(`${API_BASE}/generate-template`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idea })
-                });
-                
-                if (!res.ok) throw new Error('생성 실패');
-                
-                const data = await res.json();
-                
-                // Save generated template
-                const saveRes = await fetch(`${API_BASE}/template/${data.filename}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: data.content
-                });
-                
-                if (saveRes.ok) {
-                    alert(`✅ 템플릿 생성 완료: ${data.filename}`);
-                    await loadTemplates();
-                    await selectTemplate(data.filename);
-                } else {
-                    alert('템플릿 저장 실패');
-                }
-            } catch (e) {
-                alert('템플릿 생성 실패: ' + e.message);
-            }
+            const data = await res.json();
+            if (data.error) return alert('생성 실패: ' + data.error);
+            
+            // Save and open
+            await fetch(`${API_BASE}/template/${data.filename}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'text/plain' },
+                body: data.content
+            });
+            
+            await loadTemplates();
+            await selectTemplate(data.filename);
         }
 
         loadTemplates();
