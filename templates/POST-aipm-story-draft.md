@@ -58,26 +58,32 @@ Content-Type: application/json
 
 ## Instructions
 
-Generate user story with acceptance tests:
+You will receive:
+- featureDescription: {{featureDescription}}
+- parentId: {{parentId}}
+- components: {{components}}
+
+Generate a complete user story following INVEST principles. Create realistic acceptance tests based on the feature description.
 
 ```bash
+# Generate the story based on the input parameters
 RESULT=$(cat << 'EOF'
 {
-  "title": "Story title",
-  "description": "Detailed description",
-  "asA": "User persona",
-  "iWant": "User goal",
-  "soThat": "User benefit",
-  "components": ["frontend", "backend"],
+  "title": "User can {{featureDescription}}",
+  "description": "As a user, I want to {{featureDescription}} so that I can achieve my goals",
+  "asA": "user",
+  "iWant": "to {{featureDescription}}",
+  "soThat": "I can use the feature effectively",
+  "components": {{components}},
   "storyPoint": 5,
   "assigneeEmail": "",
-  "parentId": null,
+  "parentId": {{parentId}},
   "acceptWarnings": true,
   "acceptanceTests": [{
-    "title": "Test title",
-    "given": ["precondition"],
-    "when": ["action"],
-    "then": ["expected result"],
+    "title": "Verify {{featureDescription}} works correctly",
+    "given": ["User is logged in", "Feature is enabled"],
+    "when": ["User performs the action"],
+    "then": ["Feature works as expected", "User sees success message"],
     "status": "Draft"
   }]
 }
