@@ -171,6 +171,54 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Generate template using AI
+  if (url.pathname === '/generate-template' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      const { idea } = JSON.parse(body);
+      const taskId = `gen-${Date.now()}`;
+      
+      const prompt = `Generate a Semantic API template based on this idea: "${idea}"
+
+Create a complete template file with:
+1. Appropriate METHOD-path.md filename
+2. Description section
+3. Role assignment
+4. Parameters
+5. Output schema (JSON)
+6. Test example
+7. Instructions with bash commands that call the callback endpoint
+
+Return ONLY valid JSON in this format:
+{
+  "filename": "METHOD-path.md",
+  "content": "# Template Title\\n\\n**BASELINE**: See templates/SEMANTIC_API_GUIDELINES.md\\n\\n## Description\\n...full template content..."
+}
+
+Execute this bash command to return the result:
+
+RESULT='<your generated JSON here>'
+
+curl -X POST http://localhost:8082/callback/${taskId} \\
+  -H "Content-Type: application/json" \\
+  -d "$RESULT"`;
+
+      pendingRequests.set(taskId, { res, timeout: setTimeout(() => {
+        if (pendingRequests.has(taskId)) {
+          pendingRequests.delete(taskId);
+          res.writeHead(504, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Request timeout' }));
+          activeCount--;
+        }
+      }, 90000) });
+
+      activeCount++;
+      execKiroCLI(prompt);
+    });
+    return;
+  }
+
   // Check concurrent limit
   if (activeCount >= MAX_CONCURRENT) {
     res.writeHead(503, { 'Content-Type': 'application/json' });

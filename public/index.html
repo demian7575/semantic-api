@@ -356,14 +356,36 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             if (overlay) overlay.remove();
             if (dialog) dialog.remove();
             
-            alert('🤖 AI가 템플릿을 생성 중입니다...\n\n(구현 예정: POST /generate-template 엔드포인트 호출)');
+            alert('🤖 AI가 템플릿을 생성 중입니다... (최대 90초 소요)');
             
-            // TODO: Call API to generate template
-            // const res = await fetch(`${API_BASE}/generate-template`, {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({ idea })
-            // });
+            try {
+                const res = await fetch(`${API_BASE}/generate-template`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idea })
+                });
+                
+                if (!res.ok) throw new Error('생성 실패');
+                
+                const data = await res.json();
+                
+                // Save generated template
+                const saveRes = await fetch(`${API_BASE}/template/${data.filename}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: data.content
+                });
+                
+                if (saveRes.ok) {
+                    alert(`✅ 템플릿 생성 완료: ${data.filename}`);
+                    await loadTemplates();
+                    await selectTemplate(data.filename);
+                } else {
+                    alert('템플릿 저장 실패');
+                }
+            } catch (e) {
+                alert('템플릿 생성 실패: ' + e.message);
+            }
         }
 
         loadTemplates();
