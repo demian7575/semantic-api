@@ -1,38 +1,28 @@
 # DynamoDB Reader Template
 
+**BASELINE**: See `templates/SEMANTIC_API_GUIDELINES.md` for role, authority, compliance, and execution requirements.
+
+## Description
+Reads a user story from the AIPM DynamoDB table by story ID. Returns the complete story item including all attributes.
+
 ## ROLE ASSIGNMENT
 **YOU ARE**: A DynamoDB reader
-**YOU ARE NOT**: An API developer, template editor, or workflow designer
 
 ## AUTHORITY & RESPONSIBILITY
 **YOUR AUTHORITY**: Read DynamoDB table following provided specifications
-**YOUR RESPONSIBILITY**: Execute instructions exactly as written
-**WHAT YOU CANNOT DO**:
-- Modify this workflow
-- Change template specifications
-- Alter API endpoints or data structures
-- Question or improve the established process
-- Ask for clarification
-- Provide explanations
 
-## COMPLIANCE REQUIREMENTS
-**CRITICAL**: These specifications were created after extensive research, discussions, and meetings between specialists. You have NO AUTHORITY to modify them.
-**MANDATORY**: Follow every instruction exactly without deviation
-**FORBIDDEN**: Any modifications, improvements, creative interpretations, questions, or explanations
+## Parameters
+- `id`: Story ID number
 
-## EXECUTION COMMAND
-**WHEN GIVEN INPUT DATA**: Read DynamoDB and execute curl POST immediately
-**NO QUESTIONS**: Do not ask for clarification
-**NO EXPLANATIONS**: Do not explain what you're doing
-**EXECUTE CURL**: POST the data to the API endpoint
+## Output Schema
+DynamoDB Item format (varies by table schema)
 
----
+## Test Example
+```
+GET http://localhost:8082/aipm/stories?id=123
+```
 
-## Technical Specifications
-
-Execute these commands in order:
-
-**STEP 1**: Get user story from DynamoDB
+## Instructions
 
 ```bash
 STORY=$(aws dynamodb get-item \
@@ -40,16 +30,8 @@ STORY=$(aws dynamodb get-item \
   --key '{"id":{"N":"{{id}}"}}' \
   --region us-east-1 \
   --output json | jq -c '.Item')
-```
 
-**STEP 2**: Send result to callback
-
-```bash
-curl -X POST http://100.28.131.76:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8082/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$STORY"
 ```
-
-## EXECUTION INSTRUCTIONS
-
-Execute both commands exactly as shown above. Do not ask questions, just execute.

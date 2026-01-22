@@ -20,7 +20,7 @@ tar czf semantic-api.tar.gz \
   templates/ \
   public/ \
   package.json \
-  package-lock.json
+  semantic-api.service
 
 # Upload to EC2
 echo "📤 Uploading to EC2..."
@@ -45,15 +45,14 @@ cd /home/ec2-user/semantic-api
 
 # Extract and install
 tar xzf /tmp/semantic-api.tar.gz
-npm install --omit=dev
 
-# Start with nohup
-KIRO_API_PORT=8082 AWS_REGION=us-east-1 nohup node src/semantic-api-server.js > semantic-api.log 2>&1 &
+# Start with nohup (no npm install needed - zero dependencies)
+KIRO_API_PORT=8082 nohup node src/semantic-api-server-sync.js > semantic-api.log 2>&1 &
 echo $! > semantic-api.pid
 
 sleep 2
 echo "✅ Deployment complete!"
-ps aux | grep semantic-api-server | grep -v grep || echo "Process not found"
+ps aux | grep semantic-api-server-sync | grep -v grep || echo "Process not found"
 ENDSSH
 
 # Cleanup
@@ -68,3 +67,4 @@ echo ""
 echo "✅ Deployment complete!"
 echo "API: http://$DEV_EC2:$PORT"
 echo "Health: http://$DEV_EC2:$PORT/health"
+echo "Frontend: http://$DEV_EC2:$PORT"

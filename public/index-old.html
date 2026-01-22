@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic API - Template Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: #fff; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; }
+        .architecture { margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        .main-content { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+        .sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: fit-content; }
+        .content { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .template-list { list-style: none; }
+        .template-item { padding: 10px; margin: 5px 0; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .template-item:hover { background: #f0f0f0; }
+        .template-item.active { background: #e3f2fd; }
+        textarea { width: 100%; min-height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        .actions { margin-top: 20px; display: flex; gap: 10px; }
+        .docs { margin-top: 30px; padding-top: 30px; border-top: 2px solid #eee; }
+        .docs h3 { margin: 20px 0 10px; color: #333; }
+        .docs code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+        .docs pre { background: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; margin: 10px 0; }
+        .new-template { margin-bottom: 15px; }
+        .new-template input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
+        .feature-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; }
+        .feature { padding: 10px; background: #e8f5e9; border-radius: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Semantic API</h1>
+            <p class="subtitle">Template-based Intent-driven API with Kiro CLI Integration</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h2 style="margin-bottom: 15px;">Templates</h2>
+                <div class="new-template">
+                    <input type="text" id="newTemplateName" placeholder="GET-example or POST-users">
+                    <button class="btn btn-success" onclick="createTemplate()">+ New Template</button>
+                </div>
+                <ul class="template-list" id="templateList"></ul>
+            </div>
+
+            <div class="content">
+                <div id="editorSection" style="display: none;">
+                    <h2 id="templateTitle">Template Editor</h2>
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                        <h3 style="margin-bottom: 10px;">📋 템플릿 정보</h3>
+                        <div id="templateDocs" style="color: #666; line-height: 1.6;"></div>
+                    </div>
+                    <textarea id="templateEditor"></textarea>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="saveTemplate()">Save</button>
+                        <button class="btn btn-danger" onclick="deleteTemplate()">Delete</button>
+                        <button class="btn" onclick="testTemplate()">Test</button>
+                    </div>
+                </div>
+
+                <div class="docs">
+                    <h2>📖 Semantic API 사용 설명서</h2>
+                    
+                    <h3>🎯 아키텍처</h3>
+                    <pre style="background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff;">Client ──request──→ Server ──template──→ Kiro CLI
+                                           ↓
+Client ←─response─← Server ←──JSON────────┘</pre>
+                    <div class="feature-list" style="margin-top: 10px;">
+                        <div class="feature">✅ Zero dependencies</div>
+                        <div class="feature">✅ Synchronous API</div>
+                        <div class="feature">✅ Max 5 concurrent</div>
+                        <div class="feature">✅ Template-based</div>
+                    </div>
+
+                    <h3>🚀 빠른 시작</h3>
+                    <p><strong>1단계:</strong> 왼쪽에서 템플릿 선택 또는 새로 생성</p>
+                    <p><strong>2단계:</strong> 템플릿 편집 후 저장</p>
+                    <p><strong>3단계:</strong> Test 버튼으로 즉시 테스트</p>
+                    
+                    <h3>📝 템플릿 작성 가이드</h3>
+                    
+                    <h4>템플릿 이름 규칙</h4>
+                    <p><code>METHOD-path-to-endpoint.md</code> 형식으로 작성</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><code>GET-weather.md</code> → <code>GET /weather</code></li>
+                        <li><code>POST-users.md</code> → <code>POST /users</code></li>
+                        <li><code>GET-aipm-stories.md</code> → <code>GET /aipm/stories</code></li>
+                        <li><code>POST-aipm-invest-analysis.md</code> → <code>POST /aipm/invest-analysis</code></li>
+                    </ul>
+
+                    <h4>템플릿 기본 구조</h4>
+                    <pre># Template Title
+
+**BASELINE**: See templates/SEMANTIC_API_GUIDELINES.md
+
+## ROLE ASSIGNMENT
+**YOU ARE**: [역할 정의]
+
+## AUTHORITY & RESPONSIBILITY
+**YOUR AUTHORITY**: [수행할 작업]
+
+## Parameters
+- \`param1\`: 파라미터 설명
+- \`param2\`: 파라미터 설명
+
+## Instructions
+
+작업을 수행하고 JSON만 출력:
+
+\`\`\`bash
+# 명령어 실행
+RESULT=$(curl -s "api.example.com/data?id={{param1}}")
+echo "$RESULT"
+\`\`\`
+
+JSON만 출력. 설명 없음.</pre>
+
+                    <h4>파라미터 사용법</h4>
+                    <p>템플릿에서 <code>{{변수명}}</code>을 사용하면 자동으로 치환됩니다:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>GET 요청:</strong> 쿼리 파라미터 → <code>?city=Seoul</code> → <code>{{city}}</code></li>
+                        <li><strong>POST 요청:</strong> JSON body → <code>{"storyId": 123}</code> → <code>{{storyId}}</code></li>
+                    </ul>
+
+                    <h3>🔌 API 호출 방법</h3>
+                    
+                    <h4>GET 요청 예시</h4>
+                    <pre>curl "http://100.28.131.76:8082/weather?city=Seoul"
+
+# 응답 (즉시)
+{
+  "city": "Seoul",
+  "temp_c": "5",
+  "weather": "Clear"
+}</pre>
+
+                    <h4>POST 요청 예시</h4>
+                    <pre>curl -X POST http://100.28.131.76:8082/aipm/invest-analysis \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storyId": 123,
+    "title": "User login feature",
+    "description": "Implement authentication"
+  }'
+
+# 응답 (즉시)
+{
+  "storyId": 123,
+  "score": 85,
+  "summary": "Good story quality"
+}</pre>
+
+                    <h3>⚡ 성능 및 제약사항</h3>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>응답 시간:</strong> 2-10초 (Kiro CLI 실행 시간)</li>
+                        <li><strong>동시 처리:</strong> 최대 5개 요청</li>
+                        <li><strong>초과 시:</strong> 503 Server busy 반환 (재시도 필요)</li>
+                        <li><strong>타임아웃:</strong> 긴 작업은 타임아웃 가능</li>
+                    </ul>
+
+                    <h3>✅ 템플릿 작성 체크리스트</h3>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>✓ BASELINE 참조 포함</li>
+                        <li>✓ ROLE과 AUTHORITY 명확히 정의</li>
+                        <li>✓ Parameters 섹션에 모든 파라미터 문서화</li>
+                        <li>✓ JSON만 출력하도록 지시</li>
+                        <li>✓ 설명이나 마크다운 없이 순수 JSON만</li>
+                        <li>✓ bash 명령어는 실행 가능하도록 작성</li>
+                    </ul>
+
+                    <h3>🐛 문제 해결</h3>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>503 에러:</strong> 서버가 바쁨 → 잠시 후 재시도</li>
+                        <li><strong>500 에러:</strong> Kiro CLI 실행 실패 → 템플릿 명령어 확인</li>
+                        <li><strong>404 에러:</strong> 템플릿 없음 → 파일명 확인</li>
+                        <li><strong>JSON 파싱 에러:</strong> 출력에 설명 포함됨 → "JSON만 출력" 강조</li>
+                    </ul>
+
+                    <h3>📚 추가 리소스</h3>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><code>SEMANTIC_API_GUIDELINES.md</code> - 공통 가이드라인</li>
+                        <li><code>GET /health</code> - 서버 상태 확인</li>
+                        <li><code>GET /templates</code> - 템플릿 목록 조회</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTemplate = null;
+        const API_BASE = window.location.origin;
+
+        async function loadTemplates() {
+            try {
+                const res = await fetch(`${API_BASE}/templates`);
+                const data = await res.json();
+                const list = document.getElementById('templateList');
+                list.innerHTML = data.templates.map(t => `
+                    <li class="template-item" data-name="${t}" onclick="selectTemplate('${t}')">
+                        <span>${t}</span>
+                    </li>
+                `).join('');
+            } catch (e) {
+                alert('템플릿 목록 로드 실패: ' + e.message);
+            }
+        }
+
+        async function selectTemplate(name) {
+            try {
+                const res = await fetch(`${API_BASE}/template/${name}`);
+                const data = await res.text();
+                currentTemplate = name;
+                document.getElementById('templateTitle').textContent = name;
+                document.getElementById('templateEditor').value = data;
+                document.getElementById('editorSection').style.display = 'block';
+                
+                const docs = generateTemplateDocs(name, data);
+                document.getElementById('templateDocs').innerHTML = docs;
+                
+                document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
+                const clickedItem = document.querySelector(`.template-item[data-name="${name}"]`);
+                if (clickedItem) clickedItem.classList.add('active');
+            } catch (e) {
+                alert('템플릿 로드 실패: ' + e.message);
+            }
+        }
+
+        function generateTemplateDocs(name, content) {
+            const [method, ...pathParts] = name.replace('.md', '').split('-');
+            const path = '/' + pathParts.join('/');
+            
+            // Extract parameters (exclude taskId - internal only)
+            const params = [...content.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]).filter(p => p !== 'taskId');
+            const uniqueParams = [...new Set(params)];
+            
+            // Extract description
+            let description = '';
+            const descMatch = content.match(/## Description\s*\n([\s\S]*?)\n\n##/);
+            if (descMatch) description = descMatch[1].trim();
+            
+            // Extract Test Example
+            let testExample = '';
+            const testMatch = content.match(/## Test Example\s*```\s*([\s\S]*?)```/);
+            if (testMatch) testExample = testMatch[1].trim();
+            
+            let role = 'Task executor';
+            const roleMatch = content.match(/\*\*YOU ARE\*\*:\s*(.+)/);
+            if (roleMatch) role = roleMatch[1].trim();
+            
+            let docs = `<strong>엔드포인트:</strong> <code>${method} ${path}</code><br>`;
+            if (description) {
+                docs += `<strong>설명:</strong> ${description}<br><br>`;
+            }
+            docs += `<strong>역할:</strong> ${role}<br>`;
+            
+            if (uniqueParams.length > 0) {
+                docs += `<strong>파라미터:</strong> `;
+                docs += uniqueParams.map(p => `<code>${p}</code>`).join(', ');
+                docs += '<br>';
+            }
+            
+            if (testExample) {
+                docs += `<br><strong>테스트 예시:</strong><br><pre style="background:#f4f4f4;padding:10px;border-radius:4px;font-size:11px;overflow-x:auto;margin-top:5px">${testExample}</pre>`;
+            }
+            
+            return docs;
+        }
+            
+            if (uniqueParams.length > 0) {
+                docs += `<strong>파라미터:</strong> `;
+                docs += uniqueParams.map(p => `<code>${p}</code>`).join(', ');
+                docs += '<br>';
+                
+                if (method === 'GET') {
+                    const exampleParams = uniqueParams.map(p => `${p}=value`).join('&');
+                    docs += `<strong>예시:</strong> <code>curl "${API_BASE}${path}?${exampleParams}"</code>`;
+                } else {
+                    const exampleBody = '{' + uniqueParams.map(p => `"${p}": "value"`).join(', ') + '}';
+                    docs += `<strong>예시:</strong> <code>curl -X ${method} ${API_BASE}${path} -H "Content-Type: application/json" -d '${exampleBody}'</code>`;
+                }
+            } else {
+                docs += `<strong>파라미터:</strong> 없음<br>`;
+                docs += `<strong>예시:</strong> <code>curl -X ${method} "${API_BASE}${path}"</code>`;
+            }
+            
+            return docs;
+        }
+
+        async function createTemplate() {
+            const name = document.getElementById('newTemplateName').value.trim();
+            if (!name) return alert('템플릿 이름을 입력하세요');
+            
+            let templateName = name;
+            if (!templateName.endsWith('.md')) templateName += '.md';
+            if (!templateName.match(/^(GET|POST|PUT|DELETE|PATCH)-[\w-]+\.md$/)) {
+                return alert('형식: METHOD-path.md (예: GET-weather.md, POST-users.md)');
+            }
+            
+            const template = `# ${templateName.replace('.md', '')} Template
+
+**BASELINE**: See templates/SEMANTIC_API_GUIDELINES.md
+
+## ROLE ASSIGNMENT
+**YOU ARE**: A task executor
+
+## AUTHORITY & RESPONSIBILITY
+**YOUR AUTHORITY**: Execute task and return result
+
+## Parameters
+- \`param1\`: Description
+
+## Instructions
+
+Execute task and output JSON only:
+
+\`\`\`bash
+echo '{"message": "Hello from ${templateName}"}'
+\`\`\`
+
+Output only the JSON result. No explanations.`;
+
+            try {
+                const res = await fetch(`${API_BASE}/template/${templateName}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: template
+                });
+                if (res.ok) {
+                    document.getElementById('newTemplateName').value = '';
+                    await loadTemplates();
+                    await selectTemplate(templateName);
+                } else {
+                    alert('템플릿 생성 실패');
+                }
+            } catch (e) {
+                alert('템플릿 생성 실패: ' + e.message);
+            }
+        }
+
+        async function saveTemplate() {
+            if (!currentTemplate) return;
+            const content = document.getElementById('templateEditor').value;
+            try {
+                const res = await fetch(`${API_BASE}/template/${currentTemplate}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: content
+                });
+                if (res.ok) {
+                    alert('저장 완료');
+                    await loadTemplates();
+                } else {
+                    alert('저장 실패');
+                }
+            } catch (e) {
+                alert('저장 실패: ' + e.message);
+            }
+        }
+
+        async function deleteTemplate() {
+            if (!currentTemplate) return;
+            if (!confirm(`${currentTemplate}을(를) 삭제하시겠습니까?`)) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/template/${currentTemplate}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    document.getElementById('editorSection').style.display = 'none';
+                    currentTemplate = null;
+                    await loadTemplates();
+                } else {
+                    alert('삭제 실패');
+                }
+            } catch (e) {
+                alert('삭제 실패: ' + e.message);
+            }
+        }
+
+        function testTemplate() {
+            if (!currentTemplate) return;
+            
+            const content = document.getElementById('templateEditor').value;
+            
+            // Extract Test Example from template (HTTP request format)
+            const testExampleMatch = content.match(/## Test Example\s*```\s*([\s\S]*?)```/);
+            if (!testExampleMatch) {
+                alert('템플릿에 Test Example이 없습니다');
+                return;
+            }
+            
+            const httpRequest = testExampleMatch[1].trim();
+            console.log('HTTP Request:', httpRequest);
+            
+            const lines = httpRequest.split('\n');
+            
+            // Parse first line: METHOD URL
+            const firstLine = lines[0].trim();
+            const [method, url] = firstLine.split(/\s+/);
+            
+            console.log('Method:', method, 'URL:', url);
+            
+            if (!method || !url) {
+                alert('Test Example 형식 오류: METHOD URL 형식이어야 합니다');
+                return;
+            }
+            
+            // Parse URL
+            let urlObj;
+            try {
+                urlObj = new URL(url.replace('localhost:8082', window.location.host));
+            } catch (e) {
+                alert('URL 파싱 실패: ' + e.message);
+                return;
+            }
+            
+            const path = urlObj.pathname + urlObj.search;
+            
+            if (method === 'GET') {
+                const userInput = prompt('URL 입력:', `${API_BASE}${path}`);
+                if (userInput === null) return;
+                window.open(userInput, '_blank');
+            } else {
+                // Extract JSON body (after empty line)
+                const emptyLineIndex = lines.findIndex((l, i) => i > 0 && l.trim() === '');
+                const bodyLines = emptyLineIndex >= 0 ? lines.slice(emptyLineIndex + 1) : [];
+                const bodyText = bodyLines.join('\n').trim();
+                
+                console.log('Body text:', bodyText);
+                
+                let defaultBody = {};
+                if (bodyText) {
+                    try {
+                        defaultBody = JSON.parse(bodyText);
+                    } catch (e) {
+                        console.error('Failed to parse body:', e);
+                        alert('JSON 파싱 실패: ' + e.message + '\n\nBody:\n' + bodyText);
+                        return;
+                    }
+                }
+                
+                console.log('Parsed body:', defaultBody);
+                
+                // Create a textarea dialog
+                const dialog = document.createElement('div');
+                dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;width:600px;max-width:90%';
+                dialog.innerHTML = `
+                    <h3 style="margin-top:0">JSON Body 입력</h3>
+                    <p style="color:#666;font-size:12px;margin-bottom:10px">${method} ${API_BASE}${urlObj.pathname}</p>
+                    <textarea id="jsonInput" style="width:100%;height:300px;font-family:monospace;padding:10px;border:1px solid #ddd;border-radius:4px">${JSON.stringify(defaultBody, null, 2)}</textarea>
+                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">
+                        <button onclick="this.closest('div').parentElement.remove();document.getElementById('overlay').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer">취소</button>
+                        <button id="submitBtn" style="padding:8px 16px;border:none;border-radius:4px;background:#007bff;color:white;cursor:pointer">실행</button>
+                    </div>
+                `;
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'overlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999';
+                
+                document.body.appendChild(overlay);
+                document.body.appendChild(dialog);
+                
+                document.getElementById('submitBtn').onclick = () => {
+                    const body = document.getElementById('jsonInput').value;
+                    dialog.remove();
+                    overlay.remove();
+                    
+                    console.log('Sending request:', method, `${API_BASE}${urlObj.pathname}`, body);
+                    
+                    fetch(`${API_BASE}${urlObj.pathname}`, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body
+                    }).then(res => res.json()).then(data => {
+                        alert('응답:\n' + JSON.stringify(data, null, 2));
+                    }).catch(e => {
+                        alert('요청 실패: ' + e.message);
+                    });
+                };
+            }
+        }
+
+        loadTemplates();
+    </script>
+</body>
+</html>
+        .main-content { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+        .sidebar { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: fit-content; }
+        .content { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .template-list { list-style: none; }
+        .template-item { padding: 10px; margin: 5px 0; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .template-item:hover { background: #f0f0f0; }
+        .template-item.active { background: #e3f2fd; }
+        textarea { width: 100%; min-height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        .actions { margin-top: 20px; display: flex; gap: 10px; }
+        .docs { margin-top: 30px; padding-top: 30px; border-top: 2px solid #eee; }
+        .docs h3 { margin: 20px 0 10px; color: #333; }
+        .docs code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+        .docs pre { background: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; margin: 10px 0; }
+        .new-template { margin-bottom: 15px; }
+        .new-template input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Semantic API</h1>
+            <p class="subtitle">Template-based Intent-driven API with Kiro CLI Integration</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <h2 style="margin-bottom: 15px;">Templates</h2>
+                <div class="new-template">
+                    <input type="text" id="newTemplateName" placeholder="GET-example or POST-users">
+                    <button class="btn btn-success" onclick="createTemplate()">+ New Template</button>
+                </div>
+                <ul class="template-list" id="templateList"></ul>
+            </div>
+
+            <div class="content">
+                <div id="editorSection" style="display: none;">
+                    <h2 id="templateTitle">Template Editor</h2>
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px;">
+                        <h3 style="margin-bottom: 10px;">📋 템플릿 설명서</h3>
+                        <div id="templateDocs" style="color: #666; line-height: 1.6;"></div>
+                    </div>
+                    <textarea id="templateEditor"></textarea>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="saveTemplate()">Save</button>
+                        <button class="btn btn-danger" onclick="deleteTemplate()">Delete</button>
+                        <button class="btn" onclick="testTemplate()">Test</button>
+                    </div>
+                </div>
+
+                <div class="docs">
+                    <h2>📖 사용 설명서</h2>
+                    
+                    <h3>1. 개요</h3>
+                    <p>Semantic API는 URL 경로를 마크다운 템플릿 파일로 매핑하여 Kiro CLI가 실행하는 시스템입니다.</p>
+                    
+                    <h3>2. 템플릿 생성</h3>
+                    <p>템플릿 이름 형식: <code>METHOD-path.md</code></p>

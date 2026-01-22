@@ -4,21 +4,33 @@ import http from 'http';
 import { existsSync, readFile, readdir, writeFile, unlink } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const TEMPLATES_DIR = join(__dirname, '../templates');
-
 const PORT = process.env.KIRO_API_PORT || 8082;
-const QUEUE_TABLE = process.env.KIRO_QUEUE_TABLE || 'semantic-api-queue';
+const MAX_CONCURRENT = 5;
 
-const client = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const dynamodb = DynamoDBDocumentClient.from(client);
-
-// Store pending requests waiting for callback
+let activeCount = 0;
 const pendingRequests = new Map();
+
+// Execute Kiro CLI (fire and forget - callback will handle response)
+function execKiroCLI(templateContent) {
+  const kiro = spawn('/home/ec2-user/.local/bin/kiro-cli', [
+    'chat',
+    '--trust-all-tools',
+    '--no-interactive'
+  ]);
+
+  kiro.stdin.write(templateContent);
+  kiro.stdin.end();
+  
+  // Log errors but don't wait for completion
+  kiro.stderr.on('data', (data) => {
+    console.error('Kiro CLI error:', data.toString());
+  });
+}
 
 // HTTP server
 const server = http.createServer(async (req, res) => {
@@ -37,7 +49,38 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'healthy' }));
+    res.end(JSON.stringify({ 
+      status: 'healthy',
+      activeRequests: activeCount,
+      pendingCallbacks: pendingRequests.size
+    }));
+    return;
+  }
+
+  // Callback endpoint
+  if (url.pathname.startsWith('/callback/') && req.method === 'POST') {
+    const taskId = url.pathname.split('/').pop();
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const result = JSON.parse(body);
+        
+        if (pendingRequests.has(taskId)) {
+          const { res: pendingRes } = pendingRequests.get(taskId);
+          pendingRes.writeHead(200, { 'Content-Type': 'application/json' });
+          pendingRes.end(JSON.stringify(result));
+          pendingRequests.delete(taskId);
+          activeCount--;
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
     return;
   }
 
@@ -128,79 +171,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Callback endpoint for Kiro CLI to post results
-  if (url.pathname.startsWith('/callback/') && req.method === 'POST') {
-    const taskId = url.pathname.split('/').pop();
-    console.log(`Callback received for task: ${taskId}`);
-    console.log(`Pending requests: ${Array.from(pendingRequests.keys()).join(', ')}`);
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const result = JSON.parse(body);
-        console.log(`Callback data length: ${body.length}`);
-        await dynamodb.send(new UpdateCommand({
-          TableName: QUEUE_TABLE,
-          Key: { id: taskId },
-          UpdateExpression: 'SET #status = :complete, #result = :result',
-          ExpressionAttributeNames: { '#status': 'status', '#result': 'result' },
-          ExpressionAttributeValues: { ':complete': 'complete', ':result': JSON.stringify(result) }
-        }));
-        
-        // Resolve pending request if exists
-        if (pendingRequests.has(taskId)) {
-          console.log(`Resolving pending request for ${taskId}`);
-          const { res: pendingRes } = pendingRequests.get(taskId);
-          pendingRes.writeHead(200, { 'Content-Type': 'application/json' });
-          pendingRes.end(JSON.stringify(result));
-          pendingRequests.delete(taskId);
-        } else {
-          console.log(`No pending request found for ${taskId}`);
-        }
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true }));
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: error.message }));
-      }
-    });
-    return;
-  }
-
-  // Get task result
-  if (url.pathname.startsWith('/task/') && req.method === 'GET') {
-    const taskId = url.pathname.split('/').pop();
-    try {
-      const result = await dynamodb.send(new GetCommand({
-        TableName: QUEUE_TABLE,
-        Key: { id: taskId }
-      }));
-      if (!result.Item) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Task not found' }));
-        return;
-      }
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result.Item));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message }));
-    }
+  // Check concurrent limit
+  if (activeCount >= MAX_CONCURRENT) {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Server busy, try again later' }));
     return;
   }
 
   // Generic template-based endpoint
-  // Map: METHOD /path/to/endpoint → templates/METHOD-path-to-endpoint.md
   const templateName = `${req.method}${url.pathname.replace(/\//g, '-')}.md`;
   const templatePath = join(TEMPLATES_DIR, templateName);
   
-  console.log(`Request: ${req.method} ${url.pathname}`);
-  console.log(`Template: ${templatePath}`);
-  console.log(`Exists: ${existsSync(templatePath)}`);
-  
-  // Check if template exists
   if (!existsSync(templatePath)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Template not found' }));
@@ -211,39 +192,41 @@ const server = http.createServer(async (req, res) => {
   req.on('data', chunk => body += chunk);
   req.on('end', async () => {
     try {
-      console.log(`Body: "${body}"`);
-      console.log(`Query params:`, Object.fromEntries(url.searchParams));
       const parameters = body ? JSON.parse(body) : Object.fromEntries(url.searchParams);
-      console.log(`Parameters:`, parameters);
       const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      const task = {
-        id: taskId,
-        status: 'pending',
-        createdAt: Date.now(),
-        input: { template: templatePath, parameters }
-      };
-
-      await dynamodb.send(new PutCommand({ TableName: QUEUE_TABLE, Item: task }));
-
-      // Store pending request - callback will resolve it
-      console.log(`Task created: ${taskId}, waiting for callback...`);
-      pendingRequests.set(taskId, { res, createdAt: Date.now() });
-      
-      // Timeout after 90 seconds
-      setTimeout(() => {
-        if (pendingRequests.has(taskId)) {
-          pendingRequests.delete(taskId);
-          res.writeHead(202, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ 
-            taskId, 
-            status: 'timeout',
-            message: 'Processing timeout, check /task/' + taskId 
-          }));
+      // Read and inject parameters into template
+      readFile(templatePath, 'utf8', (err, templateContent) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to read template' }));
+          return;
         }
-      }, 90000);
+
+        // Inject taskId and parameters
+        let content = templateContent.replace(/\{\{taskId\}\}/g, taskId);
+        for (const [key, value] of Object.entries(parameters)) {
+          content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+        }
+
+        // Store pending request (no taskId exposed to client)
+        activeCount++;
+        pendingRequests.set(taskId, { res, createdAt: Date.now() });
+
+        // Execute Kiro CLI (callback will handle response)
+        execKiroCLI(content);
+
+        // Timeout after 90 seconds
+        setTimeout(() => {
+          if (pendingRequests.has(taskId)) {
+            pendingRequests.delete(taskId);
+            activeCount--;
+            res.writeHead(504, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Request timeout' }));
+          }
+        }, 90000);
+      });
     } catch (error) {
-      console.error(`Error:`, error);
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message }));
     }
@@ -251,6 +234,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Kiro API server running on port ${PORT}`);
-  console.log(`Template mapping: METHOD /path → templates/METHOD-path.md`);
+  console.log(`Semantic API server running on port ${PORT}`);
+  console.log(`Max concurrent requests: ${MAX_CONCURRENT}`);
+  console.log(`Using callback pattern for responses`);
 });

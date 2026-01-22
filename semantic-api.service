@@ -6,10 +6,9 @@ After=network.target
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/semantic-api
-Environment="KIRO_API_PORT=9000"
-Environment="AWS_REGION=us-east-1"
+Environment="KIRO_API_PORT=8082"
 Environment="NODE_ENV=production"
-ExecStart=/usr/bin/node src/semantic-api-server.js
+ExecStart=/usr/bin/node src/semantic-api-server-sync.js
 Restart=always
 RestartSec=10
 StandardOutput=append:/home/ec2-user/semantic-api/semantic-api.log

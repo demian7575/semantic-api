@@ -2,45 +2,246 @@
 
 Template-based intent-driven API that integrates Kiro CLI with AWS infrastructure.
 
-## 🎯 Project Focus
+## 🎯 Architecture
 
-Ultra-generic HTTP server where URLs map directly to markdown template files. Each template defines the intent, constraints, and instructions for Kiro CLI to execute.
+**Ultra-simple**: HTTP request → Template → Kiro CLI → JSON response
 
-**Architecture**: HTTP method + URL path → Template file → Kiro CLI → Generated code
-
-**Deployment:**
-- **Development EC2**: 44.222.168.46:8082
-- **Endpoint**: http://44.222.168.46:8082
-
-**Core Components:**
-- **Template-Based Routing** - URL paths map to markdown files
-- **Semantic API Server** - Minimal HTTP server (130 lines)
-- **DynamoDB** - Task queue and state management
-- **Kiro CLI Integration** - Direct template passing
-
-**Available Templates:**
-- `POST-api-users` - Create user endpoint
-- `GET-api-users` - List users endpoint  
-- `GET-aipm-stories` - Read AIPM user stories from DynamoDB
-
-See [TEMPLATES.md](TEMPLATES.md) for complete template reference.
-
-## 🚀 Quick Deploy
-
-Deploy to development EC2:
-```bash
-./scripts/deploy-dev.sh
+```
+Client → Server (Node.js) → Kiro CLI (max 5 concurrent) → Response
 ```
 
-Deployment target:
-- EC2: 44.222.168.46
-- Port: 8082
-- Process manager: PM2
-- Health check: http://44.222.168.46:8082/health
+**No dependencies**: Pure Node.js, no database, no queue
 
-## 💻 Local Development
+## 🚀 Quick Start
 
-## 🏗️ Architecture
+```bash
+# Install (no dependencies!)
+npm install
+
+# Start server
+npm start
+
+# Test
+curl "http://localhost:8082/weather?city=Seoul"
+```
+
+## 📡 API Usage
+
+### 1. Create endpoint by adding template
+
+File: `templates/GET-weather.md`
+```markdown
+# Weather Template
+Fetch weather for {{city}}
+Output JSON only.
+```
+
+### 2. Call endpoint (synchronous)
+
+```bash
+curl -X GET "http://localhost:8082/weather?city=Seoul"
+# Waits and returns: {"city": "Seoul", "temp_c": "5", ...}
+```
+
+That's it! No polling, no task IDs, just standard REST API.
+
+## 🔧 How It Works
+
+1. **Request**: `GET /weather?city=Seoul`
+2. **Template lookup**: `templates/GET-weather.md`
+3. **Parameter injection**: Replace `{{city}}` with `Seoul`
+4. **Execute**: Spawn Kiro CLI with template (non-interactive)
+5. **Wait**: Server waits for Kiro CLI to complete
+6. **Response**: Return JSON result directly
+
+## 📁 Project Structure
+
+```
+semantic-api/
+├── src/
+│   └── semantic-api-server-sync.js    # Main server (180 lines)
+├── templates/
+│   ├── SEMANTIC_API_GUIDELINES.md     # Shared guidelines
+│   ├── GET-weather.md                 # Weather endpoint
+│   ├── GET-aipm-stories.md            # DynamoDB reader
+│   ├── POST-aipm-story-draft.md       # Story generator
+│   └── ...                            # More templates
+├── package.json                       # Zero dependencies
+└── semantic-api.service               # Systemd service
+```
+
+## 🎨 Template Format
+
+```markdown
+# Template Title
+
+**BASELINE**: See templates/SEMANTIC_API_GUIDELINES.md
+
+## ROLE ASSIGNMENT
+**YOU ARE**: [Role description]
+
+## AUTHORITY & RESPONSIBILITY
+**YOUR AUTHORITY**: [What you can do]
+
+## Parameters
+- `param1`: Description
+- `param2`: Description
+
+## Instructions
+
+[Instructions for Kiro CLI]
+
+Output only valid JSON:
+```json
+{
+  "result": "data"
+}
+```
+
+No explanations. JSON only.
+```
+
+## 🔌 Available Endpoints
+
+| Method | Path | Template | Description |
+|--------|------|----------|-------------|
+| GET | `/weather` | GET-weather.md | Fetch weather data |
+| GET | `/aipm/stories` | GET-aipm-stories.md | Read DynamoDB story |
+| POST | `/aipm/story-draft` | POST-aipm-story-draft.md | Generate user story |
+| POST | `/aipm/acceptance-test-draft` | POST-aipm-acceptance-test-draft.md | Generate acceptance test |
+| POST | `/aipm/gwt-analysis` | POST-aipm-gwt-analysis.md | Analyze test quality |
+| POST | `/aipm/invest-analysis` | POST-aipm-invest-analysis.md | Analyze story quality |
+
+## 🛠️ Management Endpoints
+
+- `GET /health` - Health check
+- `GET /templates` - List all templates
+- `GET /template/{name}` - Get template content
+- `PUT /template/{name}` - Create/update template
+- `DELETE /template/{name}` - Delete template
+
+## 🚢 Deployment
+
+```bash
+# Copy to EC2
+scp -r . ec2-user@44.222.168.46:~/semantic-api/
+
+# SSH to EC2
+ssh ec2-user@44.222.168.46
+
+# Setup systemd
+sudo cp semantic-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable semantic-api
+sudo systemctl start semantic-api
+
+# Check status
+sudo systemctl status semantic-api
+curl http://localhost:8082/health
+```
+
+## 📊 Features
+
+- ✅ **Zero dependencies** - Pure Node.js
+- ✅ **Synchronous API** - Standard REST pattern
+- ✅ **Concurrent execution** - Max 5 parallel requests
+- ✅ **Template-based** - Add endpoints by adding markdown files
+- ✅ **Parameter injection** - `{{param}}` replaced automatically
+- ✅ **Error handling** - Returns error details on failure
+- ✅ **No database** - Stateless design
+- ✅ **Hot reload** - Add templates without restart
+
+## 🔍 Monitoring
+
+```bash
+# Check health
+curl http://localhost:8082/health
+
+# View logs
+sudo journalctl -u semantic-api -f
+
+# Check active requests
+curl http://localhost:8082/health | jq '.activeRequests'
+```
+
+## 🧪 Testing
+
+```bash
+# Run test script
+./test-sync-server.sh
+
+# Manual test
+curl -X GET "http://localhost:8082/weather?city=Tokyo"
+# Returns result immediately
+```
+
+## 💡 Design Principles
+
+1. **Simplicity**: Standard REST API pattern
+2. **Transparency**: URL → Template mapping is obvious
+3. **Flexibility**: Add endpoints by adding files
+4. **Reliability**: Concurrent limit prevents overload
+5. **Observability**: Health endpoint shows system state
+
+## 🔒 Security Notes
+
+- Run as non-root user (ec2-user)
+- Kiro CLI executes with user permissions
+- No authentication (add nginx + auth if needed)
+- Templates can execute bash commands (trust your templates!)
+
+## 📈 Performance
+
+- **Latency**: ~2-10s per request (Kiro CLI execution time)
+- **Throughput**: 5 concurrent requests max
+- **Memory**: ~100MB base + ~50MB per active Kiro CLI
+- **CPU**: Depends on Kiro CLI workload
+
+## 🆚 Architecture Evolution
+
+| Version | Pattern | Complexity |
+|---------|---------|------------|
+| v1 (Original) | Server + DynamoDB + Worker + Callback | High |
+| v2 (Async) | Server + Queue + TaskId polling | Medium |
+| v3 (Sync) | Server → Kiro CLI → Response | **Minimal** |
+
+## 📝 Example Request/Response
+
+```bash
+# Request
+curl -X POST http://localhost:8082/aipm/invest-analysis \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storyId": 123,
+    "title": "User login",
+    "description": "Implement authentication",
+    "asA": "user",
+    "iWant": "to login",
+    "soThat": "I can access my account"
+  }'
+
+# Response (immediate)
+{
+  "storyId": 123,
+  "summary": "Story follows INVEST principles well",
+  "score": 85,
+  "warnings": [],
+  "strengths": ["Clear value", "Testable"],
+  "source": "ai",
+  "model": "kiro-cli"
+}
+```
+
+## 📝 License
+
+MIT
+
+## 🆘 Support
+
+- Issues: Create GitHub issue
+- Logs: `sudo journalctl -u semantic-api -f`
+- Health: `curl http://localhost:8082/health`
+
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

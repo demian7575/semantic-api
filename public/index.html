@@ -20,17 +20,14 @@
         .btn-danger { background: #dc3545; color: white; }
         .btn-success { background: #28a745; color: white; }
         .template-list { list-style: none; }
-        .template-item { padding: 10px; margin: 5px 0; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .template-item { padding: 10px; margin: 5px 0; border-radius: 4px; cursor: pointer; }
         .template-item:hover { background: #f0f0f0; }
         .template-item.active { background: #e3f2fd; }
         textarea { width: 100%; min-height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 14px; }
         .actions { margin-top: 20px; display: flex; gap: 10px; }
-        .docs { margin-top: 30px; padding-top: 30px; border-top: 2px solid #eee; }
-        .docs h3 { margin: 20px 0 10px; color: #333; }
-        .docs code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
-        .docs pre { background: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; margin: 10px 0; }
         .new-template { margin-bottom: 15px; }
         .new-template input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
+        .new-template button { width: 100%; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -44,8 +41,9 @@
             <div class="sidebar">
                 <h2 style="margin-bottom: 15px;">Templates</h2>
                 <div class="new-template">
-                    <input type="text" id="newTemplateName" placeholder="GET-example or POST-users">
-                    <button class="btn btn-success" onclick="createTemplate()">+ New Template</button>
+                    <input type="text" id="newTemplateName" placeholder="GET-example">
+                    <button class="btn btn-success" onclick="createTemplate()">+ New</button>
+                    <button class="btn btn-primary" onclick="showGenerateDialog()">🤖 Generate</button>
                 </div>
                 <ul class="template-list" id="templateList"></ul>
             </div>
@@ -53,6 +51,7 @@
             <div class="content">
                 <div id="editorSection" style="display: none;">
                     <h2 id="templateTitle">Template Editor</h2>
+                    <div id="templateDocs" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; line-height: 1.6;"></div>
                     <textarea id="templateEditor"></textarea>
                     <div class="actions">
                         <button class="btn btn-primary" onclick="saveTemplate()">Save</button>
@@ -60,192 +59,265 @@
                         <button class="btn" onclick="testTemplate()">Test</button>
                     </div>
                 </div>
-
-                <div class="docs">
-                    <h2>📖 사용 설명서</h2>
-                    
-                    <h3>1. 개요</h3>
-                    <p>Semantic API는 URL 경로를 마크다운 템플릿 파일로 매핑하여 Kiro CLI가 실행하는 시스템입니다.</p>
-                    
-                    <h3>2. 템플릿 생성</h3>
-                    <p>템플릿 이름 형식: <code>METHOD-path.md</code></p>
-                    <ul style="margin-left: 20px; margin-top: 10px;">
-                        <li><code>GET-weather.md</code> → <code>GET /weather</code></li>
-                        <li><code>POST-users.md</code> → <code>POST /users</code></li>
-                        <li><code>GET-aipm-stories.md</code> → <code>GET /aipm-stories</code></li>
-                    </ul>
-
-                    <h3>3. 템플릿 구조</h3>
-                    <pre>## ROLE ASSIGNMENT
-**YOU ARE**: A data fetcher
-**YOUR RESPONSIBILITY**: Execute instructions exactly
-
-## Technical Specifications
-
-**STEP 1**: Get data
-\`\`\`bash
-DATA=$(aws dynamodb get-item --table-name my-table --key '{"id":{"N":"{{id}}"}}')
-\`\`\`
-
-**STEP 2**: Send to callback
-\`\`\`bash
-curl -X POST http://100.28.131.76:8082/callback/{{taskId}} \\
-  -H "Content-Type: application/json" \\
-  -d "$DATA"
-\`\`\`</pre>
-
-                    <h3>4. 파라미터 치환</h3>
-                    <p>URL 쿼리 파라미터는 자동으로 템플릿의 <code>{{변수명}}</code>으로 치환됩니다.</p>
-                    <ul style="margin-left: 20px; margin-top: 10px;">
-                        <li><code>GET /weather?city=Seoul</code> → <code>{{city}}</code> = Seoul</li>
-                        <li><code>GET /stories?id=512</code> → <code>{{id}}</code> = 512</li>
-                        <li><code>{{taskId}}</code>는 자동 생성됩니다</li>
-                    </ul>
-
-                    <h3>5. API 호출 예시</h3>
-                    <pre>curl "http://100.28.131.76:8082/weather?city=Seoul"
-curl "http://100.28.131.76:8082/aipm-stories?id=512"</pre>
-
-                    <h3>6. 응답 시간</h3>
-                    <p>평균 응답 시간: 5-10초 (Worker 폴링 0.5초 + Kiro 실행 2초 + 명령 실행 2-5초)</p>
-
-                    <h3>7. 주의사항</h3>
-                    <ul style="margin-left: 20px; margin-top: 10px;">
-                        <li>템플릿은 반드시 callback curl 명령을 포함해야 합니다</li>
-                        <li>Kiro CLI는 명령을 정확히 실행하도록 지시해야 합니다</li>
-                        <li>파라미터 이름은 대소문자를 구분합니다</li>
-                    </ul>
-                </div>
             </div>
         </div>
     </div>
 
     <script>
         let currentTemplate = null;
-        const API_BASE = 'http://100.28.131.76:8082';
+        const API_BASE = window.location.origin;
 
         async function loadTemplates() {
-            try {
-                const res = await fetch(`${API_BASE}/templates`);
-                const data = await res.json();
-                const list = document.getElementById('templateList');
-                list.innerHTML = data.templates.map(t => `
-                    <li class="template-item" data-name="${t}" onclick="selectTemplate('${t}')">
-                        <span>${t}</span>
-                    </li>
-                `).join('');
-            } catch (e) {
-                alert('템플릿 목록 로드 실패: ' + e.message);
-            }
+            const res = await fetch(`${API_BASE}/templates`);
+            const data = await res.json();
+            document.getElementById('templateList').innerHTML = data.templates.map(t => `
+                <li class="template-item" data-name="${t}" onclick="selectTemplate('${t}')">${t}</li>
+            `).join('');
         }
 
         async function selectTemplate(name) {
-            try {
-                const res = await fetch(`${API_BASE}/template/${name}`);
-                const data = await res.text();
-                currentTemplate = name;
-                document.getElementById('templateTitle').textContent = name;
-                document.getElementById('templateEditor').value = data;
-                document.getElementById('editorSection').style.display = 'block';
-                
-                document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
-                const clickedItem = document.querySelector(`.template-item[data-name="${name}"]`);
-                if (clickedItem) clickedItem.classList.add('active');
-            } catch (e) {
-                alert('템플릿 로드 실패: ' + e.message);
+            const res = await fetch(`${API_BASE}/template/${name}`);
+            const data = await res.text();
+            currentTemplate = name;
+            document.getElementById('templateTitle').textContent = name;
+            document.getElementById('templateEditor').value = data;
+            document.getElementById('editorSection').style.display = 'block';
+            document.getElementById('templateDocs').innerHTML = generateTemplateDocs(name, data);
+            
+            document.querySelectorAll('.template-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.template-item[data-name="${name}"]`)?.classList.add('active');
+        }
+
+        function generateTemplateDocs(name, content) {
+            const [method, ...pathParts] = name.replace('.md', '').split('-');
+            const path = '/' + pathParts.join('/');
+            
+            const params = [...content.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]).filter(p => p !== 'taskId');
+            const uniqueParams = [...new Set(params)];
+            
+            const descMatch = content.match(/## Description\s*\n([\s\S]*?)\n\n##/);
+            const description = descMatch ? descMatch[1].trim() : '';
+            
+            const testMatch = content.match(/## Test Example\s*```\s*([\s\S]*?)```/);
+            const testExample = testMatch ? testMatch[1].trim() : '';
+            
+            const roleMatch = content.match(/\*\*YOU ARE\*\*:\s*(.+)/);
+            const role = roleMatch ? roleMatch[1].trim() : 'Task executor';
+            
+            let docs = `<strong>엔드포인트:</strong> <code>${method} ${path}</code><br>`;
+            if (description) docs += `<strong>설명:</strong> ${description}<br><br>`;
+            docs += `<strong>역할:</strong> ${role}<br>`;
+            if (uniqueParams.length > 0) {
+                docs += `<strong>파라미터:</strong> ${uniqueParams.map(p => `<code>${p}</code>`).join(', ')}<br>`;
             }
+            if (testExample) {
+                docs += `<br><strong>테스트 예시:</strong><pre style="background:#f4f4f4;padding:10px;border-radius:4px;font-size:11px;overflow-x:auto;margin-top:5px">${testExample}</pre>`;
+            }
+            
+            return docs;
         }
 
         async function createTemplate() {
             const name = document.getElementById('newTemplateName').value.trim();
             if (!name) return alert('템플릿 이름을 입력하세요');
-            if (!name.match(/^(GET|POST|PUT|DELETE|PATCH)-[\w-]+$/)) {
-                return alert('형식: METHOD-path (예: GET-weather, POST-users)');
+            
+            let templateName = name.endsWith('.md') ? name : name + '.md';
+            if (!templateName.match(/^(GET|POST|PUT|DELETE|PATCH)-[\w-]+\.md$/)) {
+                return alert('형식: METHOD-path.md (예: GET-weather.md)');
             }
             
-            const template = `# ${name} Template
+            const template = `# ${templateName.replace('.md', '')} Template
+
+**BASELINE**: See templates/SEMANTIC_API_GUIDELINES.md
+
+## Description
+[템플릿 설명을 여기에 작성하세요]
 
 ## ROLE ASSIGNMENT
 **YOU ARE**: A task executor
-**YOUR RESPONSIBILITY**: Execute instructions exactly
 
-## Technical Specifications
+## AUTHORITY & RESPONSIBILITY
+**YOUR AUTHORITY**: Execute task and return result
 
-**STEP 1**: Execute your command
-\`\`\`bash
-RESULT=$(echo "Hello from ${name}")
+## Parameters
+- \`param1\`: Description
+
+## Output Schema
+\`\`\`json
+{
+  "result": "data"
+}
 \`\`\`
 
-**STEP 2**: Send to callback
+## Test Example
+\`\`\`
+${templateName.startsWith('GET') ? 'GET' : 'POST'} http://localhost:8082${templateName.replace(/^[A-Z]+-/, '/').replace('.md', '')}${templateName.startsWith('GET') ? '?param1=value' : '\nContent-Type: application/json\n\n{\n  "param1": "value"\n}'}
+\`\`\`
+
+## Instructions
+
 \`\`\`bash
-curl -X POST http://100.28.131.76:8082/callback/{{taskId}} \\
+RESULT='{"result": "data"}'
+
+curl -X POST http://localhost:8082/callback/{{taskId}} \\
   -H "Content-Type: application/json" \\
-  -d "{\\"message\\": \\"$RESULT\\"}"
+  -d "$RESULT"
 \`\`\``;
 
-            try {
-                const res = await fetch(`${API_BASE}/template/${name}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: template
-                });
-                if (res.ok) {
-                    document.getElementById('newTemplateName').value = '';
-                    await loadTemplates();
-                    selectTemplate(name);
-                } else {
-                    alert('템플릿 생성 실패');
-                }
-            } catch (e) {
-                alert('템플릿 생성 실패: ' + e.message);
+            const res = await fetch(`${API_BASE}/template/${templateName}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'text/plain' },
+                body: template
+            });
+            if (res.ok) {
+                document.getElementById('newTemplateName').value = '';
+                await loadTemplates();
+                await selectTemplate(templateName);
+            } else {
+                alert('템플릿 생성 실패');
             }
         }
 
         async function saveTemplate() {
             if (!currentTemplate) return;
             const content = document.getElementById('templateEditor').value;
-            try {
-                const res = await fetch(`${API_BASE}/template/${currentTemplate}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: content
-                });
-                if (res.ok) {
-                    alert('저장 완료');
-                } else {
-                    alert('저장 실패');
-                }
-            } catch (e) {
-                alert('저장 실패: ' + e.message);
+            const res = await fetch(`${API_BASE}/template/${currentTemplate}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'text/plain' },
+                body: content
+            });
+            if (res.ok) {
+                alert('저장 완료');
+                await loadTemplates();
+            } else {
+                alert('저장 실패');
             }
         }
 
         async function deleteTemplate() {
-            if (!currentTemplate) return;
-            if (!confirm(`${currentTemplate}을(를) 삭제하시겠습니까?`)) return;
+            if (!currentTemplate || !confirm(`${currentTemplate}을(를) 삭제하시겠습니까?`)) return;
             
-            try {
-                const res = await fetch(`${API_BASE}/template/${currentTemplate}`, {
-                    method: 'DELETE'
-                });
-                if (res.ok) {
-                    document.getElementById('editorSection').style.display = 'none';
-                    currentTemplate = null;
-                    await loadTemplates();
-                } else {
-                    alert('삭제 실패');
-                }
-            } catch (e) {
-                alert('삭제 실패: ' + e.message);
+            const res = await fetch(`${API_BASE}/template/${currentTemplate}`, { method: 'DELETE' });
+            if (res.ok) {
+                document.getElementById('editorSection').style.display = 'none';
+                currentTemplate = null;
+                await loadTemplates();
+            } else {
+                alert('삭제 실패');
             }
         }
 
         function testTemplate() {
             if (!currentTemplate) return;
-            const [method, path] = currentTemplate.replace('.md', '').split('-');
-            const params = prompt('쿼리 파라미터 입력 (예: city=Seoul, id=512)');
-            const url = params ? `${API_BASE}/${path}?${params}` : `${API_BASE}/${path}`;
-            window.open(url, '_blank');
+            
+            const content = document.getElementById('templateEditor').value;
+            const testMatch = content.match(/## Test Example\s*```\s*([\s\S]*?)```/);
+            
+            if (!testMatch) {
+                alert('템플릿에 Test Example이 없습니다');
+                return;
+            }
+            
+            const httpRequest = testMatch[1].trim();
+            const lines = httpRequest.split('\n');
+            const [method, url] = lines[0].trim().split(/\s+/);
+            
+            if (!method || !url) {
+                alert('Test Example 형식 오류');
+                return;
+            }
+            
+            const urlObj = new URL(url.replace('localhost:8082', window.location.host));
+            const path = urlObj.pathname + urlObj.search;
+            
+            if (method === 'GET') {
+                const userInput = prompt('URL 입력:', `${API_BASE}${path}`);
+                if (userInput) window.open(userInput, '_blank');
+            } else {
+                const emptyLineIndex = lines.findIndex((l, i) => i > 0 && l.trim() === '');
+                const bodyText = emptyLineIndex >= 0 ? lines.slice(emptyLineIndex + 1).join('\n').trim() : '{}';
+                
+                let defaultBody = {};
+                try {
+                    defaultBody = JSON.parse(bodyText);
+                } catch (e) {
+                    alert('JSON 파싱 실패: ' + e.message);
+                    return;
+                }
+                
+                const dialog = document.createElement('div');
+                dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;width:600px;max-width:90%';
+                dialog.innerHTML = `
+                    <h3 style="margin-top:0">JSON Body 입력</h3>
+                    <p style="color:#666;font-size:12px;margin-bottom:10px">${method} ${API_BASE}${urlObj.pathname}</p>
+                    <textarea id="jsonInput" style="width:100%;height:300px;font-family:monospace;padding:10px;border:1px solid #ddd;border-radius:4px">${JSON.stringify(defaultBody, null, 2)}</textarea>
+                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">
+                        <button onclick="this.closest('div').parentElement.remove();document.getElementById('overlay').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer">취소</button>
+                        <button id="submitBtn" style="padding:8px 16px;border:none;border-radius:4px;background:#007bff;color:white;cursor:pointer">실행</button>
+                    </div>
+                `;
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'overlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999';
+                
+                document.body.appendChild(overlay);
+                document.body.appendChild(dialog);
+                
+                document.getElementById('submitBtn').onclick = () => {
+                    const body = document.getElementById('jsonInput').value;
+                    dialog.remove();
+                    overlay.remove();
+                    
+                    fetch(`${API_BASE}${urlObj.pathname}`, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body
+                    }).then(res => res.json()).then(data => {
+                        alert('응답:\n' + JSON.stringify(data, null, 2));
+                    }).catch(e => {
+                        alert('요청 실패: ' + e.message);
+                    });
+                };
+            }
+        }
+
+        function showGenerateDialog() {
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;width:600px;max-width:90%';
+            dialog.innerHTML = `
+                <h3 style="margin-top:0">🤖 템플릿 생성</h3>
+                <p style="color:#666;margin-bottom:15px">AI가 아이디어를 바탕으로 템플릿을 생성합니다</p>
+                <textarea id="ideaInput" placeholder="예시:\n- 사용자 정보를 조회하는 GET API\n- 주문 내역을 생성하는 POST API\n- GitHub 이슈를 가져오는 엔드포인트" style="width:100%;height:150px;padding:10px;border:1px solid #ddd;border-radius:4px;font-family:inherit"></textarea>
+                <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">
+                    <button onclick="this.closest('div').parentElement.remove();document.getElementById('overlay2').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer">취소</button>
+                    <button onclick="generateTemplateFromIdea()" style="padding:8px 16px;border:none;border-radius:4px;background:#007bff;color:white;cursor:pointer">생성</button>
+                </div>
+            `;
+            
+            const overlay = document.createElement('div');
+            overlay.id = 'overlay2';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999';
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+        }
+
+        async function generateTemplateFromIdea() {
+            const idea = document.getElementById('ideaInput').value.trim();
+            if (!idea) return alert('아이디어를 입력하세요');
+            
+            document.getElementById('overlay2').remove();
+            document.querySelector('div[style*="z-index:1000"]').remove();
+            
+            alert('🤖 AI가 템플릿을 생성 중입니다...\n\n(구현 예정: POST /generate-template 엔드포인트 호출)');
+            
+            // TODO: Call API to generate template
+            // const res = await fetch(`${API_BASE}/generate-template`, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({ idea })
+            // });
         }
 
         loadTemplates();
