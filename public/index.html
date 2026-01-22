@@ -48,45 +48,9 @@
 
             <div class="content">
                 <div id="welcomeSection">
-                    <h2>📖 Semantic API 사용 설명서</h2>
-                    
-                    <h3 style="margin-top:25px">🎯 아키텍처</h3>
-                    <pre style="background:#f8f9fa;padding:15px;border-left:4px solid #007bff;border-radius:4px">Client ──request──→ Server ──template──→ Kiro CLI
-                                           ↓
-Client ←─response─← Server ←──JSON────────┘</pre>
-                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px">
-                        <div style="padding:10px;background:#e8f5e9;border-radius:4px;font-size:14px">✅ Zero dependencies</div>
-                        <div style="padding:10px;background:#e8f5e9;border-radius:4px;font-size:14px">✅ Synchronous API</div>
-                        <div style="padding:10px;background:#e8f5e9;border-radius:4px;font-size:14px">✅ Max 5 concurrent</div>
-                        <div style="padding:10px;background:#e8f5e9;border-radius:4px;font-size:14px">✅ Template-based</div>
-                    </div>
-                    
-                    <h3 style="margin-top:25px">🚀 빠른 시작</h3>
-                    <ol style="line-height:2;margin-left:20px">
-                        <li>왼쪽에서 템플릿을 선택하여 편집</li>
-                        <li><strong>+ New</strong> 버튼으로 새 템플릿 생성</li>
-                        <li><strong>🤖 Generate</strong> 버튼으로 AI가 템플릿 자동 생성</li>
-                        <li><strong>Test</strong> 버튼으로 API 테스트</li>
-                    </ol>
-                    
-                    <h3 style="margin-top:25px">📝 템플릿 작성 가이드</h3>
-                    <h4 style="margin-top:15px">템플릿 이름 규칙</h4>
-                    <p style="color:#666;margin:10px 0"><code>METHOD-path-to-endpoint.md</code> 형식으로 작성</p>
-                    <ul style="line-height:2;margin-left:20px">
-                        <li><code>GET-weather.md</code> → <code>GET /weather</code></li>
-                        <li><code>POST-users.md</code> → <code>POST /users</code></li>
-                        <li><code>GET-aipm-stories.md</code> → <code>GET /aipm/stories</code></li>
-                        <li><code>POST-aipm-invest-analysis.md</code> → <code>POST /aipm/invest-analysis</code></li>
-                    </ul>
-                    
-                    <h3 style="margin-top:25px">🔌 API 엔드포인트</h3>
-                    <ul style="line-height:2;margin-left:20px">
-                        <li><code>GET /health</code> - 서버 상태 확인</li>
-                        <li><code>GET /templates</code> - 템플릿 목록</li>
-                        <li><code>GET /template/:name</code> - 템플릿 조회</li>
-                        <li><code>PUT /template/:name</code> - 템플릿 생성/수정</li>
-                        <li><code>DELETE /template/:name</code> - 템플릿 삭제</li>
-                    </ul>
+                    <h2>🚀 Semantic API Template Manager</h2>
+                    <p style="color:#666;margin:20px 0">Template-based Intent-driven API with Kiro CLI Integration</p>
+                    <p style="color:#666;margin:20px 0">왼쪽에서 템플릿을 선택하거나 <strong>🤖 Generate New Template</strong> 버튼을 클릭하여 시작하세요.</p>
                 </div>
                 
                 <div id="editorSection" style="display: none;">
