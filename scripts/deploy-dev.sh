@@ -39,7 +39,8 @@ if [ ! -z "$PID" ]; then
   sleep 1
 fi
 
-# Setup directory
+# Clean and setup directory
+rm -rf /home/ec2-user/semantic-api
 mkdir -p /home/ec2-user/semantic-api
 cd /home/ec2-user/semantic-api
 
