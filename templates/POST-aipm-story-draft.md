@@ -76,6 +76,31 @@ Think about:
 - Why do they want it? (soThat)
 - What are the key scenarios to test?
 
+Generate JSON in this exact format:
+```json
+{
+  "title": "User can [feature]",
+  "description": "Detailed description of the feature",
+  "asA": "user role",
+  "iWant": "what user wants to do",
+  "soThat": "benefit/value",
+  "components": ["component1", "component2"],
+  "storyPoint": 5,
+  "assigneeEmail": "",
+  "parentId": null,
+  "acceptWarnings": true,
+  "acceptanceTests": [
+    {
+      "title": "Test scenario title",
+      "given": ["precondition 1", "precondition 2"],
+      "when": ["action 1", "action 2"],
+      "then": ["expected result 1", "expected result 2"],
+      "status": "Draft"
+    }
+  ]
+}
+```
+
 After generating the story, execute this bash command to return the result:
 
 ```bash
@@ -86,4 +111,4 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \
   -d "$RESULT"
 ```
 
-**IMPORTANT**: Replace `<your generated JSON here>` with the actual JSON you generated. Do not return template placeholders.
+**IMPORTANT**: Replace `<your generated JSON here>` with the actual JSON you generated based on the featureDescription.
