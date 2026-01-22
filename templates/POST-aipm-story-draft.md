@@ -63,34 +63,27 @@ You will receive:
 - parentId: {{parentId}}
 - components: {{components}}
 
-Generate a complete user story following INVEST principles. Create realistic acceptance tests based on the feature description.
+**YOUR TASK:**
+1. Analyze the feature description
+2. Create a well-structured user story following INVEST principles
+3. Generate 1-2 realistic acceptance tests with Given-When-Then format
+4. Assign appropriate story points (1, 2, 3, 5, 8, 13)
+5. Return ONLY valid JSON matching the Output Schema
+
+Think about:
+- Who is the user? (asA)
+- What do they want to do? (iWant)
+- Why do they want it? (soThat)
+- What are the key scenarios to test?
+
+After generating the story, execute this bash command to return the result:
 
 ```bash
-# Generate the story based on the input parameters
-RESULT=$(cat << 'EOF'
-{
-  "title": "User can {{featureDescription}}",
-  "description": "As a user, I want to {{featureDescription}} so that I can achieve my goals",
-  "asA": "user",
-  "iWant": "to {{featureDescription}}",
-  "soThat": "I can use the feature effectively",
-  "components": {{components}},
-  "storyPoint": 5,
-  "assigneeEmail": "",
-  "parentId": {{parentId}},
-  "acceptWarnings": true,
-  "acceptanceTests": [{
-    "title": "Verify {{featureDescription}} works correctly",
-    "given": ["User is logged in", "Feature is enabled"],
-    "when": ["User performs the action"],
-    "then": ["Feature works as expected", "User sees success message"],
-    "status": "Draft"
-  }]
-}
-EOF
-)
+RESULT='<your generated JSON here>'
 
 curl -X POST http://localhost:8082/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```
+
+**IMPORTANT**: Replace `<your generated JSON here>` with the actual JSON you generated. Do not return template placeholders.
