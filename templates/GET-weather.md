@@ -31,6 +31,13 @@ GET http://localhost:8082/weather?city=Seoul
 
 ## Instructions
 
+You will receive city parameter: {{city}}
+
+**YOUR TASK:**
+Execute the following bash commands to fetch weather data and return the result via callback.
+
+**IMPORTANT**: You MUST execute these bash commands using the execute_bash tool.
+
 ```bash
 WEATHER=$(curl -s "wttr.in/{{city}}?format=j1" | jq -c '{city: "{{city}}", temp_c: .current_condition[0].temp_C, temp_f: .current_condition[0].temp_F, weather: .current_condition[0].weatherDesc[0].value}')
 
