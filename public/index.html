@@ -49,6 +49,32 @@
             </div>
 
             <div class="content">
+                <div id="welcomeSection">
+                    <h2>🚀 Semantic API Template Manager</h2>
+                    <p style="color:#666;margin:20px 0">Template-based Intent-driven API with Kiro CLI Integration</p>
+                    
+                    <h3 style="margin-top:30px">시작하기</h3>
+                    <ol style="line-height:2;margin-left:20px">
+                        <li>왼쪽에서 템플릿을 선택하여 편집</li>
+                        <li><strong>+ New</strong> 버튼으로 새 템플릿 생성</li>
+                        <li><strong>🤖 Generate</strong> 버튼으로 AI가 템플릿 자동 생성</li>
+                        <li><strong>Test</strong> 버튼으로 API 테스트</li>
+                    </ol>
+                    
+                    <h3 style="margin-top:30px">템플릿 형식</h3>
+                    <pre style="background:#f4f4f4;padding:15px;border-radius:4px;overflow-x:auto">GET-resource.md  → GET /resource
+POST-resource.md → POST /resource</pre>
+                    
+                    <h3 style="margin-top:30px">API 엔드포인트</h3>
+                    <ul style="line-height:2;margin-left:20px">
+                        <li><code>GET /health</code> - 서버 상태 확인</li>
+                        <li><code>GET /templates</code> - 템플릿 목록</li>
+                        <li><code>GET /template/:name</code> - 템플릿 조회</li>
+                        <li><code>PUT /template/:name</code> - 템플릿 생성/수정</li>
+                        <li><code>DELETE /template/:name</code> - 템플릿 삭제</li>
+                    </ul>
+                </div>
+                
                 <div id="editorSection" style="display: none;">
                     <h2 id="templateTitle">Template Editor</h2>
                     <div id="templateDocs" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; line-height: 1.6;"></div>
@@ -81,6 +107,7 @@
             currentTemplate = name;
             document.getElementById('templateTitle').textContent = name;
             document.getElementById('templateEditor').value = data;
+            document.getElementById('welcomeSection').style.display = 'none';
             document.getElementById('editorSection').style.display = 'block';
             document.getElementById('templateDocs').innerHTML = generateTemplateDocs(name, data);
             
@@ -199,6 +226,7 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             
             const res = await fetch(`${API_BASE}/template/${currentTemplate}`, { method: 'DELETE' });
             if (res.ok) {
+                document.getElementById('welcomeSection').style.display = 'block';
                 document.getElementById('editorSection').style.display = 'none';
                 currentTemplate = null;
                 await loadTemplates();
