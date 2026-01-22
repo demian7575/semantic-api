@@ -307,8 +307,10 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             const idea = document.getElementById('ideaInput').value.trim();
             if (!idea) return alert('아이디어를 입력하세요');
             
-            document.getElementById('overlay2').remove();
-            document.querySelector('div[style*="z-index:1000"]').remove();
+            const overlay = document.getElementById('overlay2');
+            const dialog = document.querySelector('div[style*="z-index:1000"]');
+            if (overlay) overlay.remove();
+            if (dialog) dialog.remove();
             
             alert('🤖 AI가 템플릿을 생성 중입니다...\n\n(구현 예정: POST /generate-template 엔드포인트 호출)');
             
