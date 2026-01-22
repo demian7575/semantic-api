@@ -45,20 +45,35 @@ Content-Type: application/json
 
 ## Instructions
 
-Analyze test quality:
+You will receive:
+- given: {{given}}
+- when: {{when}}
+- then: {{then}}
 
-```bash
-RESULT=$(cat << 'EOF'
+**YOUR TASK:**
+1. Analyze the Given-When-Then test quality
+2. Check for clarity, completeness, and testability
+3. Calculate health score (0-100)
+4. Provide specific improvement suggestions
+
+Generate JSON in this exact format:
+```json
 {
   "health": "good",
   "score": 85,
-  "suggestions": ["Suggestion 1"],
-  "summary": "Overall assessment"
+  "suggestions": ["Specific suggestion 1", "Specific suggestion 2"],
+  "summary": "Overall assessment of test quality"
 }
-EOF
-)
+```
+
+After analysis, execute this bash command:
+
+```bash
+RESULT='<your generated JSON here>'
 
 curl -X POST http://localhost:8082/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```
+
+**IMPORTANT**: Replace `<your generated JSON here>` with actual analysis based on the test content.

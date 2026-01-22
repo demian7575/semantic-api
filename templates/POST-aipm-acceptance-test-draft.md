@@ -50,22 +50,40 @@ Content-Type: application/json
 
 ## Instructions
 
-Generate acceptance test based on the story:
+You will receive:
+- storyId: {{storyId}}
+- title: {{title}}
+- description: {{description}}
+- asA: {{asA}}
+- iWant: {{iWant}}
+- soThat: {{soThat}}
+
+**YOUR TASK:**
+1. Analyze the user story
+2. Generate 1-2 comprehensive acceptance tests
+3. Use Given-When-Then format
+4. Make tests specific and testable
+
+Generate JSON in this exact format:
+```json
+{
+  "title": "Specific test scenario title",
+  "given": ["Precondition 1", "Precondition 2"],
+  "when": ["Action 1", "Action 2"],
+  "then": ["Expected result 1", "Expected result 2"],
+  "source": "ai",
+  "summary": "Brief explanation of what this test validates"
+}
+```
+
+After generating the test, execute this bash command:
 
 ```bash
-RESULT=$(cat << 'EOF'
-{
-  "title": "Test title based on story",
-  "given": ["Precondition 1"],
-  "when": ["Action 1"],
-  "then": ["Expected result 1"],
-  "source": "ai",
-  "summary": "Brief explanation"
-}
-EOF
-)
+RESULT='<your generated JSON here>'
 
 curl -X POST http://localhost:8082/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```
+
+**IMPORTANT**: Replace `<your generated JSON here>` with actual test based on the story content.

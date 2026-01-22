@@ -58,23 +58,41 @@ Content-Type: application/json
 
 ## Instructions
 
-Analyze the story against INVEST principles and generate JSON result:
+You will receive:
+- storyId: {{storyId}}
+- title: {{title}}
+- description: {{description}}
+- asA: {{asA}}
+- iWant: {{iWant}}
+- soThat: {{soThat}}
 
-```bash
-RESULT=$(cat << 'EOF'
+**YOUR TASK:**
+1. Analyze the story against INVEST principles (Independent, Negotiable, Valuable, Estimable, Small, Testable)
+2. Calculate a quality score (0-100)
+3. Identify warnings and strengths
+4. Provide actionable summary
+
+Generate JSON in this exact format:
+```json
 {
-  "storyId": {{storyId}},
-  "summary": "Analysis summary here",
+  "storyId": 123,
+  "summary": "Brief analysis of story quality",
   "score": 85,
-  "warnings": [],
-  "strengths": ["Clear value proposition"],
+  "warnings": ["Warning 1", "Warning 2"],
+  "strengths": ["Strength 1", "Strength 2"],
   "source": "ai",
   "model": "kiro-cli"
 }
-EOF
-)
+```
+
+After analysis, execute this bash command:
+
+```bash
+RESULT='<your generated JSON here>'
 
 curl -X POST http://localhost:8082/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```
+
+**IMPORTANT**: Replace `<your generated JSON here>` with actual analysis based on the story content.
