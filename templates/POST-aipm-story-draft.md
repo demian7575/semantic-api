@@ -46,7 +46,7 @@ Independent, Negotiable, Valuable, Estimable, Small, Testable
 
 ## Test Example
 ```
-POST http://localhost:8082/aipm/story-draft
+POST http://localhost:8183/aipm/story-draft
 Content-Type: application/json
 
 {
@@ -106,7 +106,7 @@ After generating the story, execute this bash command to return the result:
 ```bash
 RESULT='<your generated JSON here>'
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```

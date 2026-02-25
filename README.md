@@ -2,15 +2,369 @@
 
 Template-based intent-driven API that integrates Kiro CLI with AWS infrastructure.
 
-## 🎯 Architecture
-
-**Ultra-simple**: HTTP request → Template → Kiro CLI → JSON response
+## 🎯 Current Architecture (2026-02-25)
 
 ```
-Client → Server (Node.js) → Kiro CLI (max 5 concurrent) → Response
+User → S3 Frontpage → API Gateway → Lambda → Dev EC2:9000
+                                      ↓
+                              Auto-starts if stopped
+```
+
+**Components:**
+- **Frontend**: S3 static website (http://semantic-api-frontend.s3-website-us-east-1.amazonaws.com)
+- **Backend**: Node.js server on Dev EC2 (3.236.230.212:9000)
+- **Auto-Start**: Shared Lambda with AIPM (`aipm-ec2-controller`)
+- **API Gateway**: https://nger6kll11.execute-api.us-east-1.amazonaws.com
+
+## 🚀 Quick Start
+
+### Access the Frontend
+```
+http://semantic-api-frontend.s3-website-us-east-1.amazonaws.com
+```
+
+The page will automatically start EC2 if stopped and load templates.
+
+### Direct API Access
+```bash
+# Ensure EC2 is running
+curl "https://nger6kll11.execute-api.us-east-1.amazonaws.com/?action=start&env=semantic-api"
+
+# Call API directly
+curl "http://3.236.230.212:9000/templates"
+curl "http://3.236.230.212:9000/weather?city=Seoul"
+```
+
+## 📡 API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| GET | `/templates` | List all templates |
+| GET | `/template/{name}` | Get template content |
+| PUT | `/template/{name}` | Create/update template |
+| DELETE | `/template/{name}` | Delete template |
+| GET | `/weather` | Weather API (example) |
+| POST | `/aipm/*` | AIPM integration endpoints |
+
+## 🎨 How It Works
+
+### Request Flow
+```
+1. User opens S3 frontpage
+2. Page calls EC2Manager.ensureRunning('semantic-api')
+3. Lambda checks EC2 state
+   - If stopped: starts it, waits ~30s
+   - If running: returns immediately
+4. Page loads templates from http://3.236.230.212:9000
+5. User interacts with templates
+6. Kiro CLI executes template logic
+7. Results returned via callback
+```
+
+### Template Execution
+```
+1. User clicks "Test" on template
+2. Frontend sends request to semantic-api server
+3. Server spawns Kiro CLI with template content
+4. Kiro CLI executes bash commands
+5. Kiro CLI posts result to /callback/{taskId}
+6. Server returns result to frontend
+```
+
+## 📁 Project Structure
+
+```
+semantic-api/
+├── public/
+│   ├── index.html              # Frontend (deployed to S3)
+│   └── ec2-manager.js          # EC2 auto-start logic (from AIPM)
+├── src/
+│   └── semantic-api-server-sync.js  # Main server
+├── templates/
+│   ├── SEMANTIC_API_GUIDELINES.md
+│   ├── GET-weather.md
+│   └── POST-*.md
+├── scripts/
+│   ├── deploy-dev.sh           # Deploy to EC2
+│   └── deploy-s3.sh            # Deploy frontend to S3
+├── semantic-api.service        # Systemd service
+├── README.md                   # This file
+└── AUTO-START-SETUP.md         # Auto-start setup guide
+```
+
+## 🚢 Deployment
+
+### Deploy Backend to EC2
+```bash
+./scripts/deploy-dev.sh
+```
+
+### Deploy Frontend to S3
+```bash
+./scripts/deploy-s3.sh
+```
+
+### Manual EC2 Deployment
+```bash
+scp -r . ec2-user@3.236.230.212:~/semantic-api/
+ssh ec2-user@3.236.230.212
+cd semantic-api
+npm install
+sudo cp semantic-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable semantic-api
+sudo systemctl start semantic-api
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+- `KIRO_API_PORT`: Server port (default: 8183, currently: 9000)
+- `KIRO_CLI_PATH`: Path to kiro-cli binary
+- `MAX_CONCURRENT`: Max concurrent Kiro CLI processes (default: 5)
+
+### Lambda Configuration
+In `/repo/ebaejun/tools/aws/aipm/lambda/ec2-controller.py`:
+```python
+INSTANCES = {
+    'prod': 'i-09971cca92b9bf3a9',      # AIPM prod
+    'dev': 'i-08c78da25af47b3cb',       # AIPM dev
+    'semantic-api': 'i-08c78da25af47b3cb'  # Semantic-API (same as dev)
+}
+```
+
+## 📊 Features
+
+- ✅ **Auto-start EC2** - Starts automatically when accessed
+- ✅ **Template management** - Create, edit, delete templates via UI
+- ✅ **Kiro CLI integration** - Execute templates with Kiro CLI
+- ✅ **Concurrent execution** - Max 5 parallel requests
+- ✅ **Zero dependencies** - Pure Node.js server
+- ✅ **Hot reload** - Add templates without restart
+- ✅ **S3 frontend** - Static website hosting
+
+## 🔍 Monitoring
+
+```bash
+# Check EC2 status
+curl "https://nger6kll11.execute-api.us-east-1.amazonaws.com/?action=status&env=semantic-api"
+
+# Check service on EC2
+ssh ec2-user@3.236.230.212 "sudo systemctl status semantic-api"
+
+# View logs
+ssh ec2-user@3.236.230.212 "sudo journalctl -u semantic-api -f"
+
+# Check if port 9000 is listening
+ssh ec2-user@3.236.230.212 "sudo netstat -tlnp | grep 9000"
+```
+
+## 🆘 Troubleshooting
+
+### Templates not loading
+1. Check EC2 is running: `?action=status&env=semantic-api`
+2. Check service: `sudo systemctl status semantic-api`
+3. Check port: `curl http://3.236.230.212:9000/health`
+
+### Auto-start not working
+1. Check Lambda logs: `aws logs tail /aws/lambda/aipm-ec2-controller --follow`
+2. Verify Lambda has EC2 permissions
+3. Check API Gateway integration
+
+### Frontend errors
+1. Open browser console (F12)
+2. Check for CORS errors
+3. Verify API_BASE URL in index.html
+
+## 📝 Related Documentation
+
+- `AUTO-START-SETUP.md` - Detailed auto-start setup guide
+- `/repo/ebaejun/tools/aws/aipm/docs/LAMBDA_AUTO_START_SETUP.md` - AIPM Lambda setup
+
+## 📈 Cost
+
+- **EC2**: ~$0.01/hour when running (t3.small)
+- **S3**: ~$0.023/GB storage + $0.09/GB transfer
+- **API Gateway**: ~$1.00 per 1M requests
+- **Lambda**: ~$0.20 per 1M requests
+
+Auto-stop saves ~$15/month if idle 50% of time.
+
+## 📝 License
+
+MIT
+
+
+```
+┌──────────┐
+│  Client  │  (Browser, curl, API client)
+└────┬─────┘
+     │ HTTP Request (GET/POST)
+     │ /weather?city=Seoul
+     ▼
+┌─────────────────────────────────────────────────────────┐
+│         Semantic API Server (Port 8082)                 │
+│         semantic-api-server-sync.js                     │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │  Request Router                                   │ │
+│  │  • /health → Health check                         │ │
+│  │  • /templates → List templates                    │ │
+│  │  • /template/{name} → CRUD operations             │ │
+│  │  • /callback/{taskId} → Receive Kiro results      │ │
+│  │  • /{endpoint} → Template-based execution         │ │
+│  └───────────────────────────────────────────────────┘ │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │  Concurrency Control                              │ │
+│  │  activeCount: 0-5 | MAX_CONCURRENT: 5             │ │
+│  │  pendingRequests: Map<taskId, response>           │ │
+│  └───────────────────────────────────────────────────┘ │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │  Template Processing                              │ │
+│  │  1. Map URL → Template (METHOD-path.md)           │ │
+│  │  2. Read template file                            │ │
+│  │  3. Inject {{parameters}}                         │ │
+│  │  4. Generate taskId                               │ │
+│  │  5. Store pending request                         │ │
+│  │  6. Spawn Kiro CLI with injected content          │ │
+│  └───────────────────────────────────────────────────┘ │
+└────────────┬────────────────────────────┬───────────────┘
+             │                            │
+             │ spawn()                    │ 
+             │ stdin: template content    │ 
+             ▼                            │
+┌──────────────────────────────────────────┼──────────────┐
+│   Kiro CLI Process (max 5 concurrent)    │              │
+│                                          │              │
+│  $ kiro-cli chat \                       │              │
+│      --trust-all-tools \                 │              │
+│      --no-interactive                    │              │
+│                                          │              │
+│  ┌────────────────────────────────────┐ │              │
+│  │ stdin (from server)                │ │              │
+│  │ ─────────────────────────────────  │ │              │
+│  │ Fetch weather for Seoul            │ │              │
+│  │ RESULT='{"city":"Seoul",...}'      │ │              │
+│  │ curl -X POST \                     │ │              │
+│  │   http://localhost:8183/callback/\ │ │              │
+│  │   task-123 -d "$RESULT"            │ │              │
+│  └────────────────────────────────────┘ │              │
+│                                          │              │
+│  ┌────────────────────────────────────┐ │              │
+│  │ Kiro executes:                     │ │              │
+│  │ 1. Parse template                  │ │              │
+│  │ 2. Execute bash commands           │ │              │
+│  │ 3. Run curl POST to callback       │ │              │
+│  └────────────────────────────────────┘ │              │
+│                                          │              │
+│  ┌────────────────────────────────────┐ │              │
+│  │ stdout/stderr (logged by server)   │ │              │
+│  │ ─────────────────────────────────  │ │              │
+│  │ Kiro CLI error: ...                │ │              │
+│  └────────────────────────────────────┘ │              │
+└──────────────────────────────────────────┼──────────────┘
+                                          │
+                                          │ HTTP POST
+                                          │ (from curl in template)
+                                          ▼
+                             ┌────────────────────────────┐
+                             │  Callback Endpoint         │
+                             │  /callback/{taskId}        │
+                             │                            │
+                             │  Body: {"city":"Seoul"...} │
+                             │                            │
+                             │  • Match taskId            │
+                             │  • Send response to client │
+                             │  • Cleanup state           │
+                             │  • Timeout: 90s            │
+                             └────────────────────────────┘
+                                                          │
+                                                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                  templates/*.md                         │
+│                                                         │
+│  • SEMANTIC_API_GUIDELINES.md (shared baseline)        │
+│  • GET-weather.md                                      │
+│  • POST-aipm-story-draft.md                            │
+│  • POST-aipm-acceptance-test-draft.md                  │
+│  • POST-aipm-gwt-analysis.md                           │
+│  • POST-aipm-invest-analysis.md                        │
+│                                                         │
+│  Each template:                                         │
+│  - Contains {{parameter}} placeholders                  │
+│  - Bash commands to execute                            │
+│  - curl callback with {{taskId}}                       │
+└─────────────────────────────────────────────────────────┘
 ```
 
 **No dependencies**: Pure Node.js, no database, no queue
+
+### Request Flow
+
+```
+1. Client → POST /aipm/story-draft {"title": "Login"}
+2. Server → Check concurrency (activeCount < 5)
+3. Server → Map to POST-aipm-story-draft.md
+4. Server → Inject parameters, generate taskId
+5. Server → Store in pendingRequests, activeCount++
+6. Server → Spawn Kiro CLI with template content
+7. Kiro CLI → Execute bash commands
+8. Kiro CLI → curl POST /callback/{taskId} with result
+9. Server → Match taskId, send response to client
+10. Server → Cleanup (activeCount--, remove from map)
+11. Client ← Receive JSON response
+```
+
+### Kiro CLI Interaction Detail
+
+```
+Server Process                    Kiro CLI Process
+─────────────────────────────────────────────────────────────
+
+spawn('kiro-cli', [
+  'chat',
+  '--trust-all-tools',
+  '--no-interactive'
+])
+    │
+    │ stdin.write()
+    ├──────────────────────────────►  stdin
+    │                                   │
+    │  Injected template content:       │ Kiro reads and
+    │  ─────────────────────────────    │ interprets template:
+    │  Fetch weather for Seoul          │
+    │  RESULT='{"city":"Seoul"}'        │ $ RESULT='{"city":"Seoul"}'
+    │  curl -X POST \                   │ $ curl -X POST \
+    │    /callback/task-123 \           │     /callback/task-123 \
+    │    -d "$RESULT"                   │     -d "$RESULT"
+    │                                   │
+    │                                   │ stdout (logged)
+    │ stderr.on('data')  ◄──────────────┤ stderr (errors)
+    │                                   │
+    │                                   │
+    │                                   │ Executes curl command
+    │                                   │ inside template
+    │                                   └──────┐
+    │                                          │
+    │                                          ▼
+    │                                   HTTP POST
+    │                                   /callback/task-123
+    │                                   {"city":"Seoul",...}
+    │                                          │
+    │ ◄────────────────────────────────────────┘
+    │ POST /callback/{taskId}
+    │
+    │ Match taskId in pendingRequests
+    │ Send response to waiting client
+    │ activeCount--
+    │ pendingRequests.delete(taskId)
+    │
+    ▼
+Response to Client
+```
 
 ## 🚀 Quick Start
 
@@ -22,7 +376,7 @@ npm install
 npm start
 
 # Test
-curl "http://localhost:8082/weather?city=Seoul"
+curl "http://localhost:8183/weather?city=Seoul"
 ```
 
 ## 📡 API Usage
@@ -39,7 +393,7 @@ Output JSON only.
 ### 2. Call endpoint (synchronous)
 
 ```bash
-curl -X GET "http://localhost:8082/weather?city=Seoul"
+curl -X GET "http://localhost:8183/weather?city=Seoul"
 # Waits and returns: {"city": "Seoul", "temp_c": "5", ...}
 ```
 
@@ -49,10 +403,11 @@ That's it! No polling, no task IDs, just standard REST API.
 
 1. **Request**: `GET /weather?city=Seoul`
 2. **Template lookup**: `templates/GET-weather.md`
-3. **Parameter injection**: Replace `{{city}}` with `Seoul`
-4. **Execute**: Spawn Kiro CLI with template (non-interactive)
-5. **Wait**: Server waits for Kiro CLI to complete
-6. **Response**: Return JSON result directly
+3. **Parameter injection**: Replace `{{city}}` with `Seoul`, `{{taskId}}` with generated ID
+4. **Spawn Kiro CLI**: Pass injected template content via stdin (non-interactive)
+5. **Kiro CLI executes**: Interprets template and runs bash commands
+6. **Callback**: Kiro CLI's curl command posts result to `/callback/{taskId}`
+7. **Response**: Server matches taskId and returns result to client
 
 ## 📁 Project Structure
 
@@ -137,7 +492,7 @@ sudo systemctl start semantic-api
 
 # Check status
 sudo systemctl status semantic-api
-curl http://localhost:8082/health
+curl http://localhost:8183/health
 ```
 
 ## 📊 Features
@@ -155,13 +510,13 @@ curl http://localhost:8082/health
 
 ```bash
 # Check health
-curl http://localhost:8082/health
+curl http://localhost:8183/health
 
 # View logs
 sudo journalctl -u semantic-api -f
 
 # Check active requests
-curl http://localhost:8082/health | jq '.activeRequests'
+curl http://localhost:8183/health | jq '.activeRequests'
 ```
 
 ## 🧪 Testing
@@ -171,7 +526,7 @@ curl http://localhost:8082/health | jq '.activeRequests'
 ./test-sync-server.sh
 
 # Manual test
-curl -X GET "http://localhost:8082/weather?city=Tokyo"
+curl -X GET "http://localhost:8183/weather?city=Tokyo"
 # Returns result immediately
 ```
 
@@ -209,7 +564,7 @@ curl -X GET "http://localhost:8082/weather?city=Tokyo"
 
 ```bash
 # Request
-curl -X POST http://localhost:8082/aipm/invest-analysis \
+curl -X POST http://localhost:8183/aipm/invest-analysis \
   -H "Content-Type: application/json" \
   -d '{
     "storyId": 123,
@@ -240,423 +595,4 @@ MIT
 
 - Issues: Create GitHub issue
 - Logs: `sudo journalctl -u semantic-api -f`
-- Health: `curl http://localhost:8082/health`
-
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        S3 Static Frontend                    │
-│              (React/Vue/Vanilla JS Application)              │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTPS
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      nginx (Port 80/443)                     │
-│                    Reverse Proxy + SSL                       │
-└────────────┬────────────────────────────┬────────────────────┘
-             │                            │
-             ▼                            ▼
-┌────────────────────────┐    ┌──────────────────────────────┐
-│   Kiro API (Port 8081) │    │  Backend API (Port 4000)     │
-│   - Chat sessions      │    │  - Business logic            │
-│   - Code generation    │    │  - Data operations           │
-│   - Task management    │    │  - Authentication            │
-└────────────┬───────────┘    └──────────────┬───────────────┘
-             │                               │
-             └───────────────┬───────────────┘
-                             ▼
-                  ┌──────────────────────┐
-                  │      DynamoDB        │
-                  │  - Task queue        │
-                  │  - Session state     │
-                  │  - Results cache     │
-                  └──────────────────────┘
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- AWS Account with credentials configured
-- Node.js 18+
-- EC2 instance (t3.small or larger)
-- Kiro CLI installed and authenticated
-
-### 1. Deploy Infrastructure
-
-```bash
-# Clone and setup
-git clone <repository>
-cd kiro-api-project
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your AWS credentials and settings
-
-# Deploy to AWS
-./scripts/deploy.sh
-```
-
-### 2. Start Services
-
-```bash
-# On EC2 instance
-sudo systemctl start kiro-api
-sudo systemctl start nginx
-sudo systemctl enable kiro-api nginx
-```
-
-### 3. Verify Deployment
-
-```bash
-# Health check
-curl http://your-ec2-ip:8081/health
-
-# Test Kiro API
-curl -X POST http://your-ec2-ip:8081/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello Kiro"}'
-```
-
-## 📁 Project Structure
-
-```
-kiro-api-project/
-├── src/
-│   ├── kiro-api-server.js      # Main Kiro API server
-│   ├── backend-api.js           # Business logic API
-│   └── lib/
-│       ├── dynamodb.js          # DynamoDB client
-│       ├── kiro-session.js      # Kiro CLI wrapper
-│       └── queue-processor.js   # Task queue handler
-├── infrastructure/
-│   ├── ec2-setup.sh             # EC2 instance setup
-│   ├── dynamodb-tables.yml      # DynamoDB table definitions
-│   └── nginx.conf               # nginx configuration
-├── scripts/
-│   ├── deploy.sh                # Deployment script
-│   ├── health-check.sh          # Service health checks
-│   └── rollback.sh              # Rollback script
-├── systemd/
-│   ├── kiro-api.service         # Kiro API systemd unit
-│   └── backend-api.service      # Backend API systemd unit
-├── tests/
-│   ├── api.test.js              # API integration tests
-│   └── kiro.test.js             # Kiro CLI tests
-├── .env.example                 # Environment template
-├── package.json
-└── README.md
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```bash
-# AWS Configuration
-AWS_REGION=us-east-1
-AWS_PROFILE=default
-
-# DynamoDB Tables
-KIRO_QUEUE_TABLE=kiro-task-queue
-KIRO_SESSIONS_TABLE=kiro-sessions
-
-# API Configuration
-KIRO_API_PORT=8081
-BACKEND_API_PORT=4000
-NODE_ENV=production
-
-# Kiro CLI
-KIRO_TIMEOUT=300000
-KIRO_MAX_SESSIONS=5
-```
-
-### nginx Configuration
-
-```nginx
-upstream kiro_api {
-    server localhost:8081;
-}
-
-upstream backend_api {
-    server localhost:4000;
-}
-
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location /api/kiro/ {
-        proxy_pass http://kiro_api/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api/ {
-        proxy_pass http://backend_api/;
-    }
-}
-```
-
-## 📊 DynamoDB Schema
-
-### Task Queue Table
-
-```javascript
-{
-  taskId: "uuid",              // Partition key
-  status: "pending|processing|completed|failed",
-  createdAt: 1234567890,       // Sort key
-  prompt: "User request",
-  result: "Generated code",
-  sessionId: "kiro-session-id",
-  metadata: {
-    userId: "user-123",
-    priority: 1
-  }
-}
-```
-
-### Sessions Table
-
-```javascript
-{
-  sessionId: "uuid",           // Partition key
-  status: "active|idle|closed",
-  lastActivity: 1234567890,
-  processId: 12345,
-  metadata: {
-    startedAt: 1234567890,
-    tasksProcessed: 10
-  }
-}
-```
-
-## 🔌 API Reference
-
-### Kiro API Endpoints
-
-#### POST /api/generate
-Generate code using a template.
-
-```bash
-curl -X POST http://localhost:8081/api/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "templateId": "create-function",
-    "parameters": {
-      "name": "calculateSum",
-      "description": "sum an array of numbers",
-      "language": "javascript"
-    }
-  }'
-```
-
-Response:
-```json
-{
-  "taskId": "uuid",
-  "status": "pending",
-  "templateId": "create-function"
-}
-```
-
-#### GET /api/templates
-List all available templates.
-
-```bash
-curl http://localhost:8081/api/templates
-```
-
-Response:
-```json
-{
-  "templates": ["create-api", "create-function", "add-tests", "refactor-code", "fix-bug", "add-documentation"]
-}
-```
-
-#### GET /api/templates/:templateId
-Get template details and parameters.
-
-```bash
-curl http://localhost:8081/api/templates/create-function
-```
-
-Response:
-```json
-{
-  "id": "create-function",
-  "name": "Create Function",
-  "description": "Generate a function with specified behavior",
-  "parameters": [
-    {
-      "name": "name",
-      "type": "string",
-      "required": true,
-      "description": "Function name"
-    }
-  ]
-}
-```
-
-#### GET /api/task/:taskId
-Get task status and result.
-
-```bash
-curl http://localhost:8081/api/task/uuid
-```
-
-Response:
-```json
-{
-  "taskId": "uuid",
-  "status": "completed",
-  "result": "Generated code here",
-  "completedAt": 1234567890
-}
-```
-
-#### GET /health
-Health check endpoint.
-
-```bash
-curl http://localhost:8081/health
-```
-
-Response:
-```json
-{
-  "status": "healthy",
-  "activeSessions": 2,
-  "queueLength": 5,
-  "uptime": 3600
-}
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suite
-npm test -- api.test.js
-
-# Run with coverage
-npm run test:coverage
-```
-
-## 📈 Monitoring
-
-### Health Checks
-
-```bash
-# Check all services
-./scripts/health-check.sh
-
-# Check specific service
-systemctl status kiro-api
-journalctl -u kiro-api -f
-```
-
-### Metrics
-
-- **API Response Time**: CloudWatch custom metrics
-- **Queue Length**: DynamoDB item count
-- **Session Count**: Active Kiro processes
-- **Error Rate**: Failed tasks / total tasks
-
-## 🔒 Security
-
-- **API Authentication**: JWT tokens or API keys
-- **EC2 Security Groups**: Restrict inbound traffic
-- **IAM Roles**: Least privilege access
-- **Secrets Management**: AWS Secrets Manager
-- **HTTPS**: SSL/TLS via nginx or ALB
-
-## 🚢 Deployment
-
-### Production Deployment
-
-```bash
-# Deploy to production
-./scripts/deploy.sh --env production
-
-# Verify deployment
-./scripts/health-check.sh --env production
-
-# Monitor logs
-ssh ec2-user@your-ec2-ip
-sudo journalctl -u kiro-api -f
-```
-
-### Rollback
-
-```bash
-# Rollback to previous version
-./scripts/rollback.sh --version previous
-```
-
-## 🐛 Troubleshooting
-
-### Kiro API Not Responding
-
-```bash
-# Check service status
-sudo systemctl status kiro-api
-
-# Check logs
-sudo journalctl -u kiro-api -n 100
-
-# Restart service
-sudo systemctl restart kiro-api
-```
-
-### High Queue Length
-
-```bash
-# Check queue size
-aws dynamodb scan --table-name kiro-task-queue \
-  --filter-expression "status = :status" \
-  --expression-attribute-values '{":status":{"S":"pending"}}'
-
-# Scale up sessions
-# Edit /etc/systemd/system/kiro-api.service
-# Set KIRO_MAX_SESSIONS=10
-sudo systemctl daemon-reload
-sudo systemctl restart kiro-api
-```
-
-## 📚 Resources
-
-- [Kiro CLI Documentation](https://docs.aws.amazon.com/amazonq/)
-- [DynamoDB Best Practices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
-- [EC2 Instance Types](https://aws.amazon.com/ec2/instance-types/)
-- [nginx Documentation](https://nginx.org/en/docs/)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests
-5. Commit (`git commit -m 'Add amazing feature'`)
-6. Push (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-See [GITHUB_SETUP.md](GITHUB_SETUP.md) for GitHub configuration.
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 🆘 Support
-
-- GitHub Issues: [Create an issue](https://github.com/your-repo/issues)
-- Email: support@your-domain.com
-- Slack: #kiro-api-support
+- Health: `curl http://localhost:8183/health`

@@ -4,7 +4,7 @@ set -e
 # Deployment configuration
 DEV_EC2="44.222.168.46"
 DEV_USER="ec2-user"
-PORT="8082"
+PORT="8183"
 APP_NAME="semantic-api"
 REMOTE_DIR="/home/ec2-user/semantic-api"
 
@@ -31,9 +31,9 @@ echo "🔧 Installing on EC2..."
 ssh -i ~/.ssh/semantic-api-key $DEV_USER@$DEV_EC2 << 'ENDSSH'
 set -e
 
-# Stop existing services on port 8082
-echo "Stopping existing services on port 8082..."
-PID=$(netstat -tlnp 2>/dev/null | grep :8082 | awk '{print $7}' | cut -d'/' -f1 | head -1)
+# Stop existing services on port 8183
+echo "Stopping existing services on port 8183..."
+PID=$(netstat -tlnp 2>/dev/null | grep :8183 | awk '{print $7}' | cut -d'/' -f1 | head -1)
 if [ ! -z "$PID" ]; then
   kill -9 $PID 2>/dev/null || true
   sleep 1
@@ -47,7 +47,7 @@ cd /home/ec2-user/semantic-api
 tar xzf /tmp/semantic-api.tar.gz
 
 # Start with nohup (no npm install needed - zero dependencies)
-KIRO_API_PORT=8082 nohup node src/semantic-api-server-sync.js > semantic-api.log 2>&1 &
+KIRO_API_PORT=8183 nohup node src/semantic-api-server-sync.js > semantic-api.log 2>&1 &
 echo $! > semantic-api.pid
 
 sleep 2

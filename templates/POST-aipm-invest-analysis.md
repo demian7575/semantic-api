@@ -43,7 +43,7 @@ Independent, Negotiable, Valuable, Estimable, Small, Testable
 
 ## Test Example
 ```
-POST http://localhost:8082/aipm/invest-analysis
+POST http://localhost:8183/aipm/invest-analysis
 Content-Type: application/json
 
 {
@@ -90,7 +90,7 @@ After analysis, execute this bash command:
 ```bash
 RESULT='<your generated JSON here>'
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```

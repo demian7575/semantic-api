@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/semantic-api
-Environment="KIRO_API_PORT=8082"
+Environment="KIRO_API_PORT=8183"
+Environment="KIRO_CLI_PATH=/home/ec2-user/.local/bin/kiro-cli"
 Environment="NODE_ENV=production"
 ExecStart=/usr/bin/node src/semantic-api-server-sync.js
 Restart=always

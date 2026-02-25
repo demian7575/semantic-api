@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Semantic API - Template Manager</title>
+    <script src="ec2-manager.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
@@ -100,6 +101,10 @@ Client ←─response─← Server ←──JSON────────┘</pre
                         <button class="btn" onclick="testTemplate()">Test</button>
                     </div>
                     
+                    <div id="responseSection" style="display:none;margin-top:20px;padding:15px;background:#f8f9fa;border-radius:4px;border:1px solid #dee2e6">
+                        <h3 style="margin:0 0 10px 0;font-size:16px">Response</h3>
+                        <pre id="responseContent" style="margin:0;padding:10px;background:white;border-radius:4px;overflow-x:auto;font-size:12px;max-height:400px"></pre>
+                    </div>
                     <div id="usageGuideContainer" style="margin-top:40px;padding-top:30px;border-top:2px solid #eee"></div>
                 </div>
             </div>
@@ -108,14 +113,36 @@ Client ←─response─← Server ←──JSON────────┘</pre
 
     <script>
         let currentTemplate = null;
-        const API_BASE = window.location.origin;
+        const API_BASE = 'http://3.236.230.212:9000';
+        // EC2_CONTROL_API is defined in ec2-manager.js
+
+        // Ensure EC2 is running before loading templates
+        async function initApp() {
+            try {
+                console.log('Ensuring EC2 is running...');
+                await EC2Manager.ensureRunning('semantic-api');
+                console.log('EC2 ready, loading templates...');
+                loadTemplates();
+            } catch (error) {
+                console.error('Failed to start EC2:', error);
+                alert('Failed to start EC2. Please try again.');
+            }
+        }
+
+        // Call on page load
+        window.addEventListener('DOMContentLoaded', initApp);
 
         async function loadTemplates() {
-            const res = await fetch(`${API_BASE}/templates`);
-            const data = await res.json();
-            document.getElementById('templateList').innerHTML = data.templates.map(t => `
-                <li class="template-item" data-name="${t}" onclick="selectTemplate('${t}')">${t}</li>
-            `).join('');
+            try {
+                const res = await fetch(`${API_BASE}/templates`);
+                const data = await res.json();
+                document.getElementById('templateList').innerHTML = data.templates.map(t => `
+                    <li class="template-item" data-name="${t}" onclick="selectTemplate('${t}')">${t}</li>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load templates:', error);
+                document.getElementById('templateList').innerHTML = '<li style="color:red;padding:10px">Failed to load templates</li>';
+            }
         }
 
         async function selectTemplate(name) {
@@ -287,7 +314,13 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             
             if (method === 'GET') {
                 const userInput = prompt('URL 입력:', `${API_BASE}${path}`);
-                if (userInput) window.open(userInput, '_blank');
+                if (userInput) {
+                    showResponse('Loading...');
+                    fetch(userInput)
+                        .then(res => res.text())
+                        .then(data => showResponse(data))
+                        .catch(e => showResponse('Error: ' + e.message));
+                }
             } else {
                 const emptyLineIndex = lines.findIndex((l, i) => i > 0 && l.trim() === '');
                 const bodyText = emptyLineIndex >= 0 ? lines.slice(emptyLineIndex + 1).join('\n').trim() : '{}';
@@ -324,16 +357,29 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
                     dialog.remove();
                     overlay.remove();
                     
+                    showResponse('Loading...');
                     fetch(`${API_BASE}${urlObj.pathname}`, {
                         method: method,
                         headers: { 'Content-Type': 'application/json' },
                         body: body
-                    }).then(res => res.json()).then(data => {
-                        alert('응답:\n' + JSON.stringify(data, null, 2));
+                    }).then(res => res.text()).then(data => {
+                        showResponse(data);
                     }).catch(e => {
-                        alert('요청 실패: ' + e.message);
+                        showResponse('Error: ' + e.message);
                     });
                 };
+            }
+        }
+
+        function showResponse(data) {
+            const section = document.getElementById('responseSection');
+            const content = document.getElementById('responseContent');
+            section.style.display = 'block';
+            try {
+                const json = JSON.parse(data);
+                content.textContent = JSON.stringify(json, null, 2);
+            } catch {
+                content.textContent = data;
             }
         }
 

@@ -9,15 +9,16 @@ import { spawn } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const TEMPLATES_DIR = join(__dirname, '../templates');
-const PORT = process.env.KIRO_API_PORT || 8082;
+const PORT = process.env.KIRO_API_PORT || 8183;
 const MAX_CONCURRENT = 5;
+const KIRO_CLI_PATH = process.env.KIRO_CLI_PATH || 'kiro-cli';
 
 let activeCount = 0;
 const pendingRequests = new Map();
 
 // Execute Kiro CLI (fire and forget - callback will handle response)
 function execKiroCLI(templateContent) {
-  const kiro = spawn('/home/ec2-user/.local/bin/kiro-cli', [
+  const kiro = spawn(KIRO_CLI_PATH, [
     'chat',
     '--trust-all-tools',
     '--no-interactive'

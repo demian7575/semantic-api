@@ -27,7 +27,7 @@ Analyzes the quality of Given-When-Then acceptance tests. Evaluates test complet
 
 ## Test Example
 ```
-POST http://localhost:8082/aipm/gwt-analysis
+POST http://localhost:8183/aipm/gwt-analysis
 Content-Type: application/json
 
 {
@@ -71,7 +71,7 @@ After analysis, execute this bash command:
 ```bash
 RESULT='<your generated JSON here>'
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```

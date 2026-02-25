@@ -24,7 +24,7 @@ Generates a complete Semantic API template based on a feature idea. Creates temp
 
 ## Test Example
 ```
-POST http://localhost:8082/generate-template
+POST http://localhost:8183/generate-template
 Content-Type: application/json
 
 {
@@ -56,7 +56,7 @@ You will receive: {{idea}}
 - Instructions with bash commands calling callback endpoint
 
 **IMPORTANT**: 
-- Use callback pattern: `curl -X POST http://localhost:8082/callback/{{taskId}}`
+- Use callback pattern: `curl -X POST http://localhost:8183/callback/{{taskId}}`
 - Include explicit instruction: "You MUST execute these bash commands using the execute_bash tool"
 - Make bash commands concrete and executable
 
@@ -73,7 +73,7 @@ After generating, execute this bash command:
 ```bash
 RESULT='<your generated JSON here>'
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```

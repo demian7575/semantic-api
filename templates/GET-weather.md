@@ -26,7 +26,7 @@ Fetches current weather information for a specified city using the wttr.in API. 
 
 ## Test Example
 ```
-GET http://localhost:8082/weather?city=Seoul
+GET http://localhost:8183/weather?city=Seoul
 ```
 
 ## Instructions
@@ -41,7 +41,7 @@ Execute the following bash commands to fetch weather data and return the result 
 ```bash
 WEATHER=$(curl -s "wttr.in/{{city}}?format=j1" | jq -c '{city: "{{city}}", temp_c: .current_condition[0].temp_C, temp_f: .current_condition[0].temp_F, weather: .current_condition[0].weatherDesc[0].value}')
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$WEATHER"
 ```

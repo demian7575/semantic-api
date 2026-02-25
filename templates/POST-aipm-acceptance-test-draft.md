@@ -34,7 +34,7 @@ Generates a Given-When-Then acceptance test based on a user story. Creates speci
 
 ## Test Example
 ```
-POST http://localhost:8082/aipm/acceptance-test-draft
+POST http://localhost:8183/aipm/acceptance-test-draft
 Content-Type: application/json
 
 {
@@ -81,7 +81,7 @@ After generating the test, execute this bash command:
 ```bash
 RESULT='<your generated JSON here>'
 
-curl -X POST http://localhost:8082/callback/{{taskId}} \
+curl -X POST http://localhost:8183/callback/{{taskId}} \
   -H "Content-Type: application/json" \
   -d "$RESULT"
 ```
