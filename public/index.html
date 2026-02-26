@@ -25,6 +25,7 @@
         .template-item:hover { background: #f0f0f0; }
         .template-item.active { background: #e3f2fd; }
         textarea { width: 100%; min-height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 14px; }
+        #inputContent { min-height: 80px !important; resize: vertical; }
         .actions { margin-top: 20px; display: flex; gap: 10px; }
         .new-template { margin-bottom: 15px; }
         .new-template input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
@@ -99,6 +100,15 @@ Client ←─response─← Server ←──JSON────────┘</pre
                         <button class="btn btn-primary" onclick="saveTemplate()">Save</button>
                         <button class="btn btn-danger" onclick="deleteTemplate()">Delete</button>
                         <button class="btn" onclick="testTemplate()">Test</button>
+                    </div>
+                    
+                    <div id="inputSection" style="display:none;margin-top:20px;padding:15px;background:#fff3cd;border-radius:4px;border:1px solid #ffc107">
+                        <h3 style="margin:0 0 10px 0;font-size:16px">Input</h3>
+                        <textarea id="inputContent" style="width:100%;height:80px;font-family:monospace;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:12px"></textarea>
+                        <div style="margin-top:10px;display:flex;gap:10px">
+                            <button onclick="executeRequest()" style="padding:8px 16px;border:none;border-radius:4px;background:#007bff;color:white;cursor:pointer">Execute</button>
+                            <button onclick="document.getElementById('inputSection').style.display='none'" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer">Cancel</button>
+                        </div>
                     </div>
                     
                     <div id="responseSection" style="display:none;margin-top:20px;padding:15px;background:#f8f9fa;border-radius:4px;border:1px solid #dee2e6">
@@ -318,14 +328,7 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
             const path = urlObj.pathname + urlObj.search;
             
             if (method === 'GET') {
-                const userInput = prompt('URL 입력:', `${API_BASE}${path}`);
-                if (userInput) {
-                    showResponse('Loading...');
-                    fetch(userInput)
-                        .then(res => res.text())
-                        .then(data => showResponse(data))
-                        .catch(e => showResponse('Error: ' + e.message));
-                }
+                showInput(`${API_BASE}${path}`, 'GET');
             } else {
                 const emptyLineIndex = lines.findIndex((l, i) => i > 0 && l.trim() === '');
                 const bodyText = emptyLineIndex >= 0 ? lines.slice(emptyLineIndex + 1).join('\n').trim() : '{}';
@@ -338,41 +341,42 @@ curl -X POST http://localhost:8082/callback/{{taskId}} \\
                     return;
                 }
                 
-                const dialog = document.createElement('div');
-                dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1000;width:600px;max-width:90%';
-                dialog.innerHTML = `
-                    <h3 style="margin-top:0">JSON Body 입력</h3>
-                    <p style="color:#666;font-size:12px;margin-bottom:10px">${method} ${API_BASE}${urlObj.pathname}</p>
-                    <textarea id="jsonInput" style="width:100%;height:300px;font-family:monospace;padding:10px;border:1px solid #ddd;border-radius:4px">${JSON.stringify(defaultBody, null, 2)}</textarea>
-                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">
-                        <button onclick="this.closest('div').parentElement.remove();document.getElementById('overlay').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;background:white;cursor:pointer">취소</button>
-                        <button id="submitBtn" style="padding:8px 16px;border:none;border-radius:4px;background:#007bff;color:white;cursor:pointer">실행</button>
-                    </div>
-                `;
-                
-                const overlay = document.createElement('div');
-                overlay.id = 'overlay';
-                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999';
-                
-                document.body.appendChild(overlay);
-                document.body.appendChild(dialog);
-                
-                document.getElementById('submitBtn').onclick = () => {
-                    const body = document.getElementById('jsonInput').value;
-                    dialog.remove();
-                    overlay.remove();
-                    
-                    showResponse('Loading...');
-                    fetch(`${API_BASE}${urlObj.pathname}`, {
-                        method: method,
-                        headers: { 'Content-Type': 'application/json' },
-                        body: body
-                    }).then(res => res.text()).then(data => {
-                        showResponse(data);
-                    }).catch(e => {
-                        showResponse('Error: ' + e.message);
-                    });
-                };
+                showInput(JSON.stringify(defaultBody, null, 2), 'POST', `${API_BASE}${urlObj.pathname}`);
+            }
+        }
+        
+        function showInput(content, method, url) {
+            const section = document.getElementById('inputSection');
+            const input = document.getElementById('inputContent');
+            section.style.display = 'block';
+            input.value = content;
+            input.dataset.method = method;
+            input.dataset.url = url || content;
+            input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        function executeRequest() {
+            const input = document.getElementById('inputContent');
+            const method = input.dataset.method;
+            const content = input.value;
+            
+            showResponse('Loading...');
+            
+            if (method === 'GET') {
+                fetch(content)
+                    .then(res => res.text())
+                    .then(data => showResponse(data))
+                    .catch(e => showResponse('Error: ' + e.message));
+            } else {
+                fetch(input.dataset.url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: content
+                }).then(res => res.text()).then(data => {
+                    showResponse(data);
+                }).catch(e => {
+                    showResponse('Error: ' + e.message);
+                });
             }
         }
 

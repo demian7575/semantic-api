@@ -2,17 +2,19 @@
 
 Template-based intent-driven API that integrates Kiro CLI with AWS infrastructure.
 
-## 🎯 Current Architecture (2026-02-25)
+## 🎯 Current Architecture (2026-02-26)
 
 ```
-User → S3 Frontpage → API Gateway → Lambda → Dev EC2:9000
-                                      ↓
-                              Auto-starts if stopped
+User → S3 Frontpage → Dev EC2:9000 (semantic-api server)
+         ↓
+    API Gateway → Lambda (auto-start if stopped)
 ```
 
 **Components:**
 - **Frontend**: S3 static website (http://semantic-api-frontend.s3-website-us-east-1.amazonaws.com)
-- **Backend**: Node.js server on Dev EC2 (3.236.230.212:9000)
+  - Template manager UI with inline Input/Response sections
+  - Auto-start EC2 via Lambda on page load
+- **Backend**: Node.js server on Dev EC2 (port 9000)
 - **Auto-Start**: Shared Lambda with AIPM (`aipm-ec2-controller`)
 - **API Gateway**: https://nger6kll11.execute-api.us-east-1.amazonaws.com
 
@@ -23,16 +25,31 @@ User → S3 Frontpage → API Gateway → Lambda → Dev EC2:9000
 http://semantic-api-frontend.s3-website-us-east-1.amazonaws.com
 ```
 
-The page will automatically start EC2 if stopped and load templates.
+**Features:**
+- Auto-starts EC2 if stopped (via Lambda)
+- Template list in sidebar
+- Inline Input section (yellow box) - edit URL/JSON before execution
+- Inline Response section (gray box) - see results immediately
+- Both sections visible simultaneously for easy comparison
+
+### Using the Frontend
+1. Click a template from the sidebar
+2. Click "Test" button
+3. Edit the Input (URL for GET, JSON for POST)
+4. Click "Execute"
+5. View Response below (Input stays visible)
 
 ### Direct API Access
 ```bash
 # Ensure EC2 is running
 curl "https://nger6kll11.execute-api.us-east-1.amazonaws.com/?action=start&env=semantic-api"
 
-# Call API directly
-curl "http://3.236.230.212:9000/templates"
-curl "http://3.236.230.212:9000/weather?city=Seoul"
+# Get current EC2 IP
+curl "https://nger6kll11.execute-api.us-east-1.amazonaws.com/?action=status&env=semantic-api" | jq -r '.publicIp'
+
+# Call API directly (replace IP with current one)
+curl "http://<EC2-IP>:9000/templates"
+curl "http://<EC2-IP>:9000/weather?city=Seoul"
 ```
 
 ## 📡 API Endpoints
@@ -56,20 +73,27 @@ curl "http://3.236.230.212:9000/weather?city=Seoul"
 3. Lambda checks EC2 state
    - If stopped: starts it, waits ~30s
    - If running: returns immediately
-4. Page loads templates from http://3.236.230.212:9000
-5. User interacts with templates
-6. Kiro CLI executes template logic
-7. Results returned via callback
+4. Page loads templates from http://<EC2-IP>:9000
+5. User clicks template → "Test" button
+6. Input section appears (yellow box) with pre-filled URL/JSON
+7. User edits input and clicks "Execute"
+8. Request sent to semantic-api server
+9. Server spawns Kiro CLI with template content
+10. Kiro CLI executes and posts result to /callback/{taskId}
+11. Response appears below Input (both visible)
 ```
 
 ### Template Execution
 ```
 1. User clicks "Test" on template
-2. Frontend sends request to semantic-api server
-3. Server spawns Kiro CLI with template content
-4. Kiro CLI executes bash commands
-5. Kiro CLI posts result to /callback/{taskId}
-6. Server returns result to frontend
+2. Input section shows with editable URL (GET) or JSON (POST)
+3. User clicks "Execute"
+4. Frontend sends request to semantic-api server
+5. Server spawns Kiro CLI with template content
+6. Kiro CLI executes bash commands
+7. Kiro CLI posts result to /callback/{taskId}
+8. Server returns result to frontend
+9. Response displays in gray box below Input
 ```
 
 ## 📁 Project Structure
@@ -120,7 +144,7 @@ sudo systemctl start semantic-api
 ## 🔧 Configuration
 
 ### Environment Variables
-- `KIRO_API_PORT`: Server port (default: 8183, currently: 9000)
+- `KIRO_API_PORT`: Server port (default: 9000)
 - `KIRO_CLI_PATH`: Path to kiro-cli binary
 - `MAX_CONCURRENT`: Max concurrent Kiro CLI processes (default: 5)
 
@@ -137,6 +161,7 @@ INSTANCES = {
 ## 📊 Features
 
 - ✅ **Auto-start EC2** - Starts automatically when accessed
+- ✅ **Inline Input/Response** - Edit and view results on same page
 - ✅ **Template management** - Create, edit, delete templates via UI
 - ✅ **Kiro CLI integration** - Execute templates with Kiro CLI
 - ✅ **Concurrent execution** - Max 5 parallel requests
@@ -151,13 +176,13 @@ INSTANCES = {
 curl "https://nger6kll11.execute-api.us-east-1.amazonaws.com/?action=status&env=semantic-api"
 
 # Check service on EC2
-ssh ec2-user@3.236.230.212 "sudo systemctl status semantic-api"
+ssh ec2-user@<EC2-IP> "sudo systemctl status semantic-api"
 
 # View logs
-ssh ec2-user@3.236.230.212 "sudo journalctl -u semantic-api -f"
+ssh ec2-user@<EC2-IP> "sudo journalctl -u semantic-api -f"
 
 # Check if port 9000 is listening
-ssh ec2-user@3.236.230.212 "sudo netstat -tlnp | grep 9000"
+ssh ec2-user@<EC2-IP> "sudo netstat -tlnp | grep 9000"
 ```
 
 ## 🆘 Troubleshooting
@@ -165,7 +190,7 @@ ssh ec2-user@3.236.230.212 "sudo netstat -tlnp | grep 9000"
 ### Templates not loading
 1. Check EC2 is running: `?action=status&env=semantic-api`
 2. Check service: `sudo systemctl status semantic-api`
-3. Check port: `curl http://3.236.230.212:9000/health`
+3. Check port: `curl http://<EC2-IP>:9000/health`
 
 ### Auto-start not working
 1. Check Lambda logs: `aws logs tail /aws/lambda/aipm-ec2-controller --follow`
@@ -175,7 +200,7 @@ ssh ec2-user@3.236.230.212 "sudo netstat -tlnp | grep 9000"
 ### Frontend errors
 1. Open browser console (F12)
 2. Check for CORS errors
-3. Verify API_BASE URL in index.html
+3. Verify ec2-manager.js is using port 9000 (not 4000)
 
 ## 📝 Related Documentation
 
@@ -198,13 +223,15 @@ MIT
 
 ```
 ┌──────────┐
-│  Client  │  (Browser, curl, API client)
+│  Client  │  (Browser with S3 Frontend)
 └────┬─────┘
-     │ HTTP Request (GET/POST)
-     │ /weather?city=Seoul
+     │ 1. Load page → Auto-start EC2
+     │ 2. Click template → "Test" button
+     │ 3. Edit Input (yellow box)
+     │ 4. Click "Execute"
      ▼
 ┌─────────────────────────────────────────────────────────┐
-│         Semantic API Server (Port 8082)                 │
+│         Semantic API Server (Port 9000)                 │
 │         semantic-api-server-sync.js                     │
 │                                                         │
 │  ┌───────────────────────────────────────────────────┐ │
@@ -249,7 +276,7 @@ MIT
 │  │ Fetch weather for Seoul            │ │              │
 │  │ RESULT='{"city":"Seoul",...}'      │ │              │
 │  │ curl -X POST \                     │ │              │
-│  │   http://localhost:8183/callback/\ │ │              │
+│  │   http://localhost:9000/callback/\ │ │              │
 │  │   task-123 -d "$RESULT"            │ │              │
 │  └────────────────────────────────────┘ │              │
 │                                          │              │
@@ -281,8 +308,17 @@ MIT
                              │  • Cleanup state           │
                              │  • Timeout: 90s            │
                              └────────────────────────────┘
-                                                          │
-                                                          ▼
+                                          │
+                                          ▼
+                             ┌────────────────────────────┐
+                             │  Frontend Response         │
+                             │  (Gray box below Input)    │
+                             │                            │
+                             │  Both Input & Response     │
+                             │  visible simultaneously    │
+                             └────────────────────────────┘
+                                          │
+                                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │                  templates/*.md                         │
 │                                                         │
@@ -376,7 +412,7 @@ npm install
 npm start
 
 # Test
-curl "http://localhost:8183/weather?city=Seoul"
+curl "http://localhost:9000/weather?city=Seoul"
 ```
 
 ## 📡 API Usage
@@ -393,7 +429,7 @@ Output JSON only.
 ### 2. Call endpoint (synchronous)
 
 ```bash
-curl -X GET "http://localhost:8183/weather?city=Seoul"
+curl -X GET "http://localhost:9000/weather?city=Seoul"
 # Waits and returns: {"city": "Seoul", "temp_c": "5", ...}
 ```
 
@@ -492,7 +528,7 @@ sudo systemctl start semantic-api
 
 # Check status
 sudo systemctl status semantic-api
-curl http://localhost:8183/health
+curl http://localhost:9000/health
 ```
 
 ## 📊 Features
@@ -510,13 +546,13 @@ curl http://localhost:8183/health
 
 ```bash
 # Check health
-curl http://localhost:8183/health
+curl http://localhost:9000/health
 
 # View logs
 sudo journalctl -u semantic-api -f
 
 # Check active requests
-curl http://localhost:8183/health | jq '.activeRequests'
+curl http://localhost:9000/health | jq '.activeRequests'
 ```
 
 ## 🧪 Testing
@@ -526,7 +562,7 @@ curl http://localhost:8183/health | jq '.activeRequests'
 ./test-sync-server.sh
 
 # Manual test
-curl -X GET "http://localhost:8183/weather?city=Tokyo"
+curl -X GET "http://localhost:9000/weather?city=Tokyo"
 # Returns result immediately
 ```
 
@@ -564,7 +600,7 @@ curl -X GET "http://localhost:8183/weather?city=Tokyo"
 
 ```bash
 # Request
-curl -X POST http://localhost:8183/aipm/invest-analysis \
+curl -X POST http://localhost:9000/aipm/invest-analysis \
   -H "Content-Type: application/json" \
   -d '{
     "storyId": 123,
@@ -595,4 +631,4 @@ MIT
 
 - Issues: Create GitHub issue
 - Logs: `sudo journalctl -u semantic-api -f`
-- Health: `curl http://localhost:8183/health`
+- Health: `curl http://localhost:9000/health`

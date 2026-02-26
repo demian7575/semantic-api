@@ -4,20 +4,21 @@
 
 Semantic API uses AIPM's Lambda function for EC2 auto-start. When users access the S3 frontpage, it automatically starts the EC2 instance if stopped.
 
-## Current Setup (2026-02-25)
+## Current Setup (2026-02-26)
 
 ### Architecture
 ```
 User → S3 Frontpage → API Gateway → Lambda → Dev EC2:9000
-                                      ↓
-                              Auto-starts if stopped
+         ↓
+    Auto-starts if stopped
+    Inline Input/Response UI
 ```
 
 ### Components
 - **S3 Frontpage**: http://semantic-api-frontend.s3-website-us-east-1.amazonaws.com
 - **API Gateway**: https://nger6kll11.execute-api.us-east-1.amazonaws.com
 - **Lambda**: `aipm-ec2-controller` (Python, shared with AIPM)
-- **EC2**: Dev instance (3.236.230.212:9000)
+- **EC2**: Dev instance (port 9000)
 
 ## How It Works
 
@@ -26,8 +27,10 @@ User → S3 Frontpage → API Gateway → Lambda → Dev EC2:9000
 3. Calls `EC2Manager.ensureRunning('semantic-api')`
 4. Lambda checks EC2 state via `?action=status&env=semantic-api`
 5. If stopped: Lambda starts EC2, waits ~30s
-6. If running: Returns immediately
-7. Page loads templates from `http://3.236.230.212:9000`
+6. If running: Returns immediately with current IP
+7. Page loads templates from `http://<EC2-IP>:9000`
+8. User clicks template → Test → Edit Input → Execute
+9. Response appears below Input (both visible)
 
 ## Lambda Configuration
 
@@ -47,7 +50,9 @@ The frontpage uses AIPM's `ec2-manager.js`:
 
 ```javascript
 // In index.html
-const API_BASE = 'http://3.236.230.212:9000';
+// API_BASE is dynamically set from Lambda status response
+const status = await fetch(`${EC2_CONTROL_API}?action=status&env=semantic-api`).then(r => r.json());
+API_BASE = `http://${status.publicIp}:9000`;
 
 async function initApp() {
     await EC2Manager.ensureRunning('semantic-api');
@@ -118,7 +123,7 @@ Net savings: ~$13-14/month
 ### Templates not loading
 1. Check browser console (F12) for errors
 2. Verify EC2 is running: `?action=status&env=semantic-api`
-3. Test direct access: `curl http://3.236.230.212:9000/templates`
+3. Test direct access: `curl http://<EC2-IP>:9000/templates`
 
 ### Auto-start fails
 1. Check Lambda logs for errors

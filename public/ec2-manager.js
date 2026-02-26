@@ -166,8 +166,8 @@ async function waitForEC2Ready(env = 'prod', maxWaitMs = 120000) {
       if (status.state === 'running' && status.publicIp) {
         // Build config from Lambda status (always current)
         const config = {
-          apiBaseUrl: `http://${status.publicIp}:4000`,
-          semanticApiUrl: `http://${status.publicIp}:8083`,
+          apiBaseUrl: `http://${status.publicIp}:9000`,
+          semanticApiUrl: `http://${status.publicIp}:9000`,
           instanceId: status.instanceId,
           status: 'running',
           updatedAt: new Date().toISOString()
@@ -209,8 +209,8 @@ async function ensureEC2Running(env = 'prod') {
       console.log(`[EC2] ${env} is already running`);
       // Build config from Lambda status instead of S3
       return {
-        apiBaseUrl: `http://${status.publicIp}:4000`,
-        semanticApiUrl: `http://${status.publicIp}:8083`,
+        apiBaseUrl: `http://${status.publicIp}:9000`,
+        semanticApiUrl: `http://${status.publicIp}:9000`,
         instanceId: status.instanceId,
         status: 'running',
         updatedAt: new Date().toISOString()
