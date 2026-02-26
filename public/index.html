@@ -113,15 +113,20 @@ Client ←─response─← Server ←──JSON────────┘</pre
 
     <script>
         let currentTemplate = null;
-        const API_BASE = 'http://3.236.230.212:9000';
+        let API_BASE = ''; // Will be set dynamically from EC2 IP
         // EC2_CONTROL_API is defined in ec2-manager.js
 
         // Ensure EC2 is running before loading templates
         async function initApp() {
             try {
                 console.log('Ensuring EC2 is running...');
-                await EC2Manager.ensureRunning('semantic-api');
-                console.log('EC2 ready, loading templates...');
+                const config = await EC2Manager.ensureRunning('semantic-api');
+                
+                // Get current IP from Lambda response
+                const status = await fetch(`${EC2_CONTROL_API}?action=status&env=semantic-api`).then(r => r.json());
+                API_BASE = `http://${status.publicIp}:9000`;
+                
+                console.log(`EC2 ready at ${API_BASE}, loading templates...`);
                 loadTemplates();
             } catch (error) {
                 console.error('Failed to start EC2:', error);
